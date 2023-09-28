@@ -1,0 +1,10 @@
+Fibocom linux apps 1.0.0
+-------------------------------------------
+
+This is a new stable release of Fibocom Linux services.  Notable changes include:
+
+* systemd integration
+* flash service
+* config service
+* ma service
+* helper service

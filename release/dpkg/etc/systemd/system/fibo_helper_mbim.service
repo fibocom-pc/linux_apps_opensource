@@ -1,0 +1,16 @@
+[Unit]
+Description=Firmware Helper Service
+After=ModemManager fibo_helper
+
+[Service]
+EnvironmentFile=/etc/systemd/system/fibo_helper.d/env.conf
+ExecStart=/opt/fibocom/fibo_helper_service/fibo_helper_mbim
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-abort
+Type=simple
+Restart=on-abort
+User=root
+
+[Install]
+Alias=fibo_helper_mbim
+WantedBy=multi-user.target

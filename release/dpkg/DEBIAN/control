@@ -1,0 +1,7 @@
+Package: linux-apps
+Version: 1.0.0
+Section: base
+Priority: standard
+Architecture: amd64
+Maintainer: Fibocom
+Description: WWAN Linux apps

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<node name="/com/fibocom/helper">
+	<interface name="com.fibocom.helper">
+		<method name="setVersion">
+			<arg name="version" type="s" direction="in" />
+		</method>
+		<method name="getVersion">
+			<arg name="version" type="s" direction="in" />
+			<arg name="version" type="s" direction="out" />
+		</method>
+		<method name="sendMesg">
+			<arg name="msgOut" type="((ii)iis)" direction="out" />
+			<arg name="msgdInt" type="((ii)iis)" direction="in" />
+		</method>
+		<signal name="cellularState">
+			<arg name="state" type="s" />
+		</signal>
+		<signal name="roamRegion">
+			<arg name="state" type="s" />
+		</signal>
+		<signal name="simcardChange">
+			<arg name="state" type="s" />
+		</signal>
+		<signal name="edlStatus">
+			<arg name="status" type="s" />
+		</signal>
+		<signal name="fastbootStatus">
+			<arg name="status" type="s" />
+		</signal>
+	</interface>
+</node>

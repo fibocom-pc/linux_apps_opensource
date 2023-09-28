@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# SPDX-License-Identifier: CC0-1.0
+# 2023 Nero zhang <sinaro@sinaro.es>
+#
+# Fibocom FM101 FCC unlock mechanism
+#
+
+# run fcc-unlock binary
+/opt/fibocom/fibo_ma_service/fibo_ma
+exit $?

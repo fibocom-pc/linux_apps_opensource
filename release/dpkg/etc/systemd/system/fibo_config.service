@@ -1,0 +1,16 @@
+[Unit]
+Description=Firmware Config Service
+After=ModemManager fibo_helper
+
+[Service]
+EnvironmentFile=/etc/systemd/system/fibo_config.d/env.conf
+ExecStart=/opt/fibocom/fibo_config_service/fibo_config
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-abort
+Type=simple
+Restart=on-abort
+User=root
+
+[Install]
+Alias=fibo_config
+WantedBy=multi-user.target
