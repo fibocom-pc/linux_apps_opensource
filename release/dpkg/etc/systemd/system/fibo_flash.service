@@ -1,6 +1,6 @@
 [Unit]
 Description=Firmware Flash Service
-After=ModemManager fibo_helper
+After=ModemManager.service fibo_helper.service
 
 [Service]
 EnvironmentFile=/etc/systemd/system/fibo_flash.d/env.conf

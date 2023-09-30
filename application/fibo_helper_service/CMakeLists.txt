@@ -72,16 +72,14 @@ set(helper_source_files
     fibo_helper_main.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
-    fibo_helper_test.c
-    generated/fibocom-helper-gdbus-generated.c
+        generated/fibocom-helper-gdbus-generated.c
     )
 
 set(analyzer_source_files
     fibo_helper_mbim_analyzer.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
-    fibo_helper_test.c
-    generated/fibocom-helper-gdbus-generated.c
+        generated/fibocom-helper-gdbus-generated.c
     )
 
 add_subdirectory(./at_mm code)
@@ -94,7 +92,7 @@ add_executable(fibo_helper_mbim
 
 target_link_libraries(fibo_helper_dbus
             code
-            /usr/local/lib/x86_64-linux-gnu/libmbim-glib.so.4.7.0
+            libmbim-glib.so
             dbus-1
             udev
             gio-2.0
@@ -105,7 +103,7 @@ target_link_libraries(fibo_helper_dbus
 
 target_link_libraries(fibo_helper_mbim
             code
-            /usr/local/lib/x86_64-linux-gnu/libmbim-glib.so.4.7.0
+            libmbim-glib.so
             dbus-1
             udev
             gio-2.0

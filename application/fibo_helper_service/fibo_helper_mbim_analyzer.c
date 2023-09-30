@@ -22,7 +22,6 @@
 #include "unistd.h"
 #include "fibo_helper_common.h"
 #include "fibo_helper_basic_func.h"
-#include "fibo_helper_test.h"
 
 GMainLoop   *gMainLoop            = NULL;
 gboolean    g_table_check_flag    = FALSE;
