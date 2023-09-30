@@ -1422,7 +1422,7 @@ fibo_adapter_get_normal_resp_from_mbim(void *msgs)
     if (ret == RET_ERROR)
         return RET_ERROR;
 
-    helper_main_analyzer_timer_close();
+    // helper_main_analyzer_timer_close();
 
     return RET_OK;
 }
@@ -1457,7 +1457,7 @@ fibo_adapter_send_req_to_mbim(void *msgs, int msgsize)
     if (ret != RET_OK)
         return RET_ERROR;
 
-    helper_main_analyzer_timer_handle();
+    // helper_main_analyzer_timer_handle();
 
     return RET_OK;
 }

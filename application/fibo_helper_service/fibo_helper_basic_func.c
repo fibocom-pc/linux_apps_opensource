@@ -20,7 +20,6 @@
 
 #include "fibo_helper_basic_func.h"
 #include <glib.h>
-#include "fibo_helper_test.h"
 #include "fibo_helper_adapter.h"
 #include "fibo_helper_common.h"
 #include <libmm-glib.h>
@@ -47,7 +46,7 @@ fibocom_request_table_type supported_request_table[] = {
     /* FWrecovery service command list */
     //{GET_PORT_STATE,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_get_port_command_ready, "AT"},
     {GET_OEM_ID,               fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTOEMUSBID?"},
-    {RESET_MODEM_HW,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_test_at_ready,          ""},
+    {RESET_MODEM_HW,           fibo_resp_error_result,       ASYNC_FUNCTION,  NULL,                           ""},
     {FLASH_FW_EDL,             fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_edl_flash_ready,        "at+syscmd=sys_reboot edl"},
 
     /* MA service command list */
@@ -1285,12 +1284,6 @@ fibo_resp_error_result_callback (MbimDevice   *device,
     user_data = (fibo_async_struct_type *)userdata;
     if (!user_data) {
         FIBO_LOG_CRITICAL ("NULL pointer!\n");
-        return;
-    }
-
-    user_data = (fibo_async_struct_type *)userdata;
-    if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -1421,17 +1414,16 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
     memcpy(resp_str, user_data->payload_str, ret_size);
 #endif
 
-    if (userdata) {
-        free(userdata);
-        userdata = NULL;
-    }
-
     FIBO_LOG_DEBUG("%d   %d \n", cid ,__LINE__);
     FIBO_LOG_DEBUG("%s   %d \n", resp_str,__LINE__);
 
     if(strstr(resp_str,"Read Error") != NULL)
     {
         fibo_adapter_alloc_and_send_resp_structure(serviceid, cid, 1, 0, NULL);
+        if (userdata) {
+            free(userdata);
+            userdata = NULL;
+        }
         return RET_OK;
     }
 
@@ -1506,7 +1498,12 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
         fibo_resp_error_result_callback(device, res, userdata);
         return RET_OK;
     }
- 
+
+    if (userdata) {
+        free(userdata);
+        userdata = NULL;
+    }
+
     if(strstr(resp_str,"ERROR") != NULL)
     {
         FIBO_LOG_CRITICAL("[%s]:at_cmd return error:%s\n", __func__, resp_str);

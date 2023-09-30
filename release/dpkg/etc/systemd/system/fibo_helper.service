@@ -1,6 +1,6 @@
 [Unit]
 Description=Firmware Helper Service
-After=ModemManager
+After=ModemManager.service
 
 [Service]
 EnvironmentFile=/etc/systemd/system/fibo_helper.d/env.conf
