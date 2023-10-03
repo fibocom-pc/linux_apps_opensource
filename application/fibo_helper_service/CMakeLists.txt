@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.6)
 project(fibo_helper_service)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0 gio-unix-2.0)
+pkg_check_modules(deps REQUIRED IMPORTED_TARGET libudev glib-2.0 gio-2.0 gio-unix-2.0 dbus-1 mbim-glib mm-glib)
 
 ##################################
 # Fibocom linux Gdbus codegen
