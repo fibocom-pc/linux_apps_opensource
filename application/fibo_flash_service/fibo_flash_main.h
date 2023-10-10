@@ -39,7 +39,7 @@
 #include <dlfcn.h>
 #include <stdbool.h>
 #include <syslog.h>
-#include "common/fibocom-helper-gdbus-generated.h"
+#include "fibocom-helper-gdbus-generated.h"
 
 #define AT_COMMAND_LEN    (256)
 #define CMD_OUTPUT_LEN    (64)

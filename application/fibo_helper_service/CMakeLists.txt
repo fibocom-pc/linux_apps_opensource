@@ -32,7 +32,6 @@ endif(NOT GDBUSCODEGEN)
 add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
     COMMAND ${GDBUSCODEGEN}  --generate-c-code=fibocom-helper-gdbus-generated --c-namespace=FibocomGdbus --interface-prefix com.fibocom. ${CMAKE_SOURCE_DIR}/application/dbus/introspection/com.fibocom.helper.xml
     COMMAND mkdir -p generated/
-    COMMAND mv fibocom-helper-gdbus-generated.h ${CMAKE_SOURCE_DIR}/application/include/common/
     COMMAND mv fibocom-helper-gdbus-generated.c generated/
     )
 include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
@@ -51,7 +50,7 @@ add_definitions(${FLAH_PREPROCESSOR_DEF})
 # Fibocom linux helper service binary configuration
 
 add_compile_options(-pthread)
-
+include_directories(${PROJECT_BINARY_DIR}/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include
                     /usr/include/dbus-1.0
                     /usr/lib/x86_64-linux-gnu/dbus-1.0/include
@@ -68,29 +67,29 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs)
 
-set(helper_source_files
+set(helperd_source_files
     fibo_helper_main.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
         generated/fibocom-helper-gdbus-generated.c
     )
 
-set(analyzer_source_files
-    fibo_helper_mbim_analyzer.c
+set(helperm_source_files
+    fibo_helper_mbim_main.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
         generated/fibocom-helper-gdbus-generated.c
     )
 
-add_subdirectory(./at_mm code)
+add_subdirectory(./at_channel code)
 
-add_executable(fibo_helper_dbus
-    ${helper_source_files})
+add_executable(fibo_helperd
+    ${helperd_source_files})
 
-add_executable(fibo_helper_mbim
-    ${analyzer_source_files})
+add_executable(fibo_helperm
+    ${helperm_source_files})
 
-target_link_libraries(fibo_helper_dbus
+target_link_libraries(fibo_helperd
             code
             libmbim-glib.so
             dbus-1
@@ -101,7 +100,7 @@ target_link_libraries(fibo_helper_dbus
             mm-glib
             PkgConfig::deps)
 
-target_link_libraries(fibo_helper_mbim
+target_link_libraries(fibo_helperm
             code
             libmbim-glib.so
             dbus-1

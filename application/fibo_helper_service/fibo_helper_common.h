@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file fibo_flash_main.c
+ * @file fibo_helper_common.h
  * @author rick.chen@fibocom.com (chenhaotian)
  * @brief
  * @version 1.0

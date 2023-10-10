@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file fibo_flash_main.c
+ * @file fibo_helper_basic_func.c
  * @author rick.chen@fibocom.com (chenhaotian)
  * @brief
  * @version 1.0
@@ -151,14 +151,14 @@ request_analyzer(fibo_async_struct_type *user_data)
             }
             else {
                 // sub_thread = g_thread_new ("sync_analyzer", (GThreadFunc)sync_func_analyzer, str);
-                FIBO_LOG_CRITICAL("Dont support AT over GNSS now!\n");
+                FIBO_LOG_ERROR("Dont support AT over GNSS now!\n");
             }
             break;
         }
     }
 
     if (ret != RET_OK || !matched_flag) {
-        FIBO_LOG_CRITICAL("Execute error or not matched! will call default resp!\n");
+        FIBO_LOG_ERROR("Execute error or not matched! will call default resp!\n");
         // supported_request_table[table_len - 1].func_pointer(serviceid, cid, rtcode, payloadlen, payload_str, NULL, NULL);
         fibo_resp_error_result(serviceid, cid, rtcode, payloadlen, payload_str, NULL, NULL);
         return RET_ERROR;
@@ -166,48 +166,6 @@ request_analyzer(fibo_async_struct_type *user_data)
 
     FIBO_LOG_DEBUG("finished!\n");
     return RET_OK;
-}
-
-static gpointer
-fibo_fastboot_monitor_msg(void *data)
-{
-    int ret = 0;
-    while(TRUE)
-    {
-        helper_message_struct *fastboot_monitor_msgs = NULL;
-        fastboot_monitor_msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
-        if (fastboot_monitor_msgs == NULL)
-        {
-            FIBO_LOG_CRITICAL("malloc failed!");
-            return NULL;
-        }
-
-        memset(fastboot_monitor_msgs, 0, 2048);
-
-        fibo_async_struct_type *fastboot_monitor_user_data   = NULL;
-
-        ret = fibo_adapter_get_control_req_from_mbim(fastboot_monitor_msgs);
-
-        fastboot_monitor_user_data = (fibo_async_struct_type *)fastboot_monitor_msgs->mtext;
-
-        if(fastboot_monitor_user_data->cid == FLASH_FW_FASTBOOT)
-        {
-            if(strstr(fastboot_monitor_user_data->payload_str,"fastboot flashing...") != NULL)
-            {
-                FIBO_LOG_DEBUG("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-                emit_fastboot_flash_status_signal("fastboot flashing...");
-            }
-            else if(strstr(fastboot_monitor_user_data->payload_str,"fastboot flashing ok") != NULL)
-            {
-                FIBO_LOG_DEBUG("--------------------------------------------------------------------\n");
-                emit_fastboot_flash_status_signal("fastboot flashing ok");
-            }
-            else
-            {
-                FIBO_LOG_CRITICAL("malloc failed!");
-            }
-        }
-    }
 }
 
 static gint
@@ -233,7 +191,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
         return RET_ERROR;
@@ -305,7 +263,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
         return RET_ERROR;
@@ -318,7 +276,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
     ret = fibo_adapter_send_req_to_mbim(msgs, 2048);
     if (ret != RET_OK) {
 
-        FIBO_LOG_CRITICAL("Send message failed!\n");
+        FIBO_LOG_ERROR("Send message failed!\n");
         free(msgs);
         msgs = NULL;
 
@@ -372,7 +330,7 @@ bus_acquired (GDBusConnection *connection,
     FIBO_LOG_DEBUG("Enter! name is %s\n", name);
 
     if (!connection || !name) {
-        FIBO_LOG_CRITICAL("NULL pointer! wont register any signal!\n");
+        FIBO_LOG_ERROR("NULL pointer! wont register any signal!\n");
         return;
     }
 
@@ -389,7 +347,7 @@ bus_name_acquired (GDBusConnection *connection,
 {
     FIBO_LOG_DEBUG("Enter!\n");
     if (!connection || !name) {
-        FIBO_LOG_CRITICAL("NULL pointer! wont register any signal!\n");
+        FIBO_LOG_ERROR("NULL pointer! wont register any signal!\n");
         return;
     }
 
@@ -399,12 +357,12 @@ bus_name_acquired (GDBusConnection *connection,
 
     g_skeleton = fibocom_gdbus_helper_skeleton_new();
 
-    // main loop will send message to message sequence and wait for return value, so main loop will be blocked.
+    // main loop will send message to message queue and wait for return value, so main loop will be blocked.
     g_signal_connect(g_skeleton, "handle-send-mesg", G_CALLBACK(request_transmiter), NULL);
 
     g_dbus_interface_skeleton_export(G_DBUS_INTERFACE_SKELETON(g_skeleton), connection, "/com/fibocom/helper", &error);
     if (error != NULL) {
-        FIBO_LOG_CRITICAL("Error: Failed to export object. Reason: %s.\n", error->message);
+        FIBO_LOG_ERROR("Error: Failed to export object. Reason: %s.\n", error->message);
         g_error_free(error);
     }
 
@@ -417,7 +375,7 @@ bus_name_acquired (GDBusConnection *connection,
 static void
 bus_name_lost (GDBusConnection *connection,const gchar *name,gpointer user_data)
 {
-    FIBO_LOG_CRITICAL("bus_name_lost !!!!\n");
+    FIBO_LOG_ERROR("bus_name_lost !!!!\n");
     return;
 }
 
@@ -454,7 +412,7 @@ static void scan_ready (MMModem3gpp  *modem_3gpp,
 
     operation_result = mm_modem_3gpp_scan_finish (modem_3gpp, result, &error);
     if (!operation_result || error != NULL) {
-        FIBO_LOG_CRITICAL("check network access failed! error:%s\n", error->message);
+        FIBO_LOG_ERROR("check network access failed! error:%s\n", error->message);
         if (modem_3gpp)
             g_object_unref (modem_3gpp);
         return;
@@ -479,7 +437,7 @@ static void scan_ready (MMModem3gpp  *modem_3gpp,
 
     if (NULL == mcc_mnc)
     {
-        FIBO_LOG_CRITICAL("Dont get current network mccmnc!\n");
+        FIBO_LOG_ERROR("Dont get current network mccmnc!\n");
         g_list_free_full (operation_result, (GDestroyNotify) mm_modem_3gpp_network_free);
         if (modem_3gpp)
             g_object_unref (modem_3gpp);
@@ -526,11 +484,11 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     sim_obj = mm_modem_get_sim_sync(modem, NULL, &error);
     if (NULL == sim_obj)
     {
-        FIBO_LOG_CRITICAL("Dont find sim card!\n");
+        FIBO_LOG_ERROR("Dont find sim card!\n");
         return;
     }
 
-    FIBO_LOG_CRITICAL("SIM card inserted!\n");
+    FIBO_LOG_ERROR("SIM card inserted!\n");
 
     fibo_adapter_mutex_sim_insert_flag_operate_lock();
     g_sim_inserted_flag = TRUE;
@@ -539,18 +497,18 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "SIM CARD inserted!");
     else
-        FIBO_LOG_CRITICAL("variable is NULL, dont send cellular info signal!\n");
+        FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
     // step2: get sim card's mccmnc.
     mccmnc_id = mm_sim_get_operator_identifier(sim_obj);
     if (NULL == mccmnc_id)
     {
-        FIBO_LOG_CRITICAL("mccmnc is NULL!\n");
+        FIBO_LOG_ERROR("mccmnc is NULL!\n");
         g_object_unref(sim_obj);
         return;
     }
 
-    FIBO_LOG_CRITICAL("get valid mccmnc: %s\n", mccmnc_id);
+    FIBO_LOG_ERROR("get valid mccmnc: %s\n", mccmnc_id);
     if (strcmp(g_local_mccmnc, mccmnc_id) != 0) {
         FIBO_LOG_DEBUG("local mccmnc changed from %s to %s\n", g_local_mccmnc, mccmnc_id);
         strncpy(g_local_mccmnc, mccmnc_id, strlen(mccmnc_id));
@@ -558,7 +516,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
         if (g_skeleton != NULL)
             fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "local mccmnc changed!");
         else
-            FIBO_LOG_CRITICAL("variable is NULL, dont send cellular info signal!\n");
+            FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
     }
     g_object_unref(sim_obj);
 
@@ -595,7 +553,7 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
     // steo1: check modem state.
     ret = fibo_adapter_check_cellular(&res);
     if (ret != RET_OK || res != RET_OK) {
-        FIBO_LOG_CRITICAL("Found cellular missing, do nothing cause udev will send cellular state signal!\n");
+        FIBO_LOG_ERROR("Found cellular missing, do nothing cause udev will send cellular state signal!\n");
         return;
     }
 
@@ -609,15 +567,96 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
     g_sim_inserted_flag = FALSE;
     fibo_adapter_mutex_sim_insert_flag_operate_unlock();
 
-    FIBO_LOG_CRITICAL("SIM card removed!\n");
+    FIBO_LOG_ERROR("SIM card removed!\n");
     // check module state firstly, if module exist, then report sim card remove, otherwise will do nothing.
     // if module power down immediately, SIM card and module will miss at same time, add logic to avoid SIM card remove signal!
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "SIM CARD removed!");
     else
-        FIBO_LOG_CRITICAL("variable is NULL, dont send cellular info signal!\n");
+        FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
     return;
+}
+
+static gboolean emit_edl_flash_status_signal(const char* p)
+{
+    FIBO_LOG_ERROR("emit_edl_flash_status_signal invoked\n");
+
+    if(g_skeleton != NULL)
+    {
+        if(p == NULL)
+        {
+            FIBO_LOG_ERROR("[%s]:g_skeleton is NULL\n", __func__);
+        }
+        else
+        {
+            FIBO_LOG_ERROR("[%s]:flash changed!:%s\n", __func__, p);
+            fibocom_gdbus_helper_emit_edl_status(g_skeleton,(const char*)p);
+        }
+    }
+    FIBO_LOG_ERROR("[%s]:flash ====== changed!\n", __func__);
+    return FALSE;
+}
+
+static gboolean emit_fastboot_flash_status_signal(const char* p)
+{
+    FIBO_LOG_ERROR("enter\n");
+    if(g_skeleton != NULL)
+    {
+        if(p == NULL)
+        {
+            FIBO_LOG_ERROR("[%s]:g_skeleton is NULL\n", __func__);
+        }
+        else
+        {
+            FIBO_LOG_ERROR("[%s]:flash changed!:%s\n", __func__, p);
+            fibocom_gdbus_helper_emit_fastboot_status(g_skeleton,(const char*)p);
+        }
+    }
+    FIBO_LOG_ERROR("[%s]:flash ====== changed!\n", __func__);
+    return FALSE;
+}
+
+static gpointer
+fibo_fastboot_monitor_msg(void *data)
+{
+    int ret = 0;
+    while(TRUE)
+    {
+        helper_message_struct *fastboot_monitor_msgs = NULL;
+        fastboot_monitor_msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
+        if (fastboot_monitor_msgs == NULL)
+        {
+            FIBO_LOG_ERROR("malloc failed!");
+            return NULL;
+        }
+
+        memset(fastboot_monitor_msgs, 0, 2048);
+
+        fibo_async_struct_type *fastboot_monitor_user_data   = NULL;
+
+        ret = fibo_adapter_get_control_req_from_mbim(fastboot_monitor_msgs);
+
+        fastboot_monitor_user_data = (fibo_async_struct_type *)fastboot_monitor_msgs->mtext;
+
+        if(fastboot_monitor_user_data->cid == FLASH_FW_FASTBOOT)
+        {
+            if(strstr(fastboot_monitor_user_data->payload_str,"fastboot flashing...") != NULL)
+            {
+                FIBO_LOG_DEBUG("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+                emit_fastboot_flash_status_signal("fastboot flashing...");
+            }
+            else if(strstr(fastboot_monitor_user_data->payload_str,"fastboot flashing ok") != NULL)
+            {
+                FIBO_LOG_DEBUG("--------------------------------------------------------------------\n");
+                emit_fastboot_flash_status_signal("fastboot flashing ok");
+            }
+            else
+            {
+                FIBO_LOG_ERROR("malloc failed!");
+            }
+        }
+    }
 }
 
 /*--------------------------------------Above are Internal Funcs-------------------------------------------------------*/
@@ -633,7 +672,7 @@ fibo_helper_control_message_receiver(void)
 
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL) {
-        FIBO_LOG_CRITICAL("malloc failed!");
+        FIBO_LOG_ERROR("malloc failed!");
         return;
     }
 
@@ -661,10 +700,10 @@ fibo_helper_control_message_receiver(void)
                     emit_fastboot_flash_status_signal("fastboot flashing ok");
                 }
                 else
-                    FIBO_LOG_CRITICAL("Invalid payload str!\n");
+                    FIBO_LOG_ERROR("Invalid payload str!\n");
                 break;
             case CTL_MBIM_NO_RESP:
-                FIBO_LOG_CRITICAL("fibo-helper-mbim no resp at all! will remove message seq and exit dbus!\n");
+                FIBO_LOG_ERROR("fibo-helper-mbim no resp at all! will remove message seq and exit dbus!\n");
                 if (msgs) {
                     free(msgs);
                     msgs = NULL;
@@ -718,35 +757,12 @@ fibo_mutex_force_sync_lock(void)
     FIBO_LOG_DEBUG ("finished!\n");
 }
 
-void
+gint
 fibo_mutex_init(void)
 {
-    fibo_adapter_all_mutex_init();
-    FIBO_LOG_DEBUG ("finished!\n");
+    return fibo_adapter_all_mutex_init();
 }
-/*
-void
-request_receiver()
-{
-    while(TRUE) {
 
-        // usleep(1000 * 200);
-        if (!g_data_updated) {
-            // FIBO_LOG_DEBUG("wait 2s to continue...\n");
-            continue;
-        }
-        else
-        {
-            FIBO_LOG_DEBUG("flag changed!\n");
-        }
-
-        fibo_mutex_force_sync_lock();
-        request_analyzer(user_data1);
-        g_data_updated = FALSE;
-        fibo_mutex_force_sync_unlock();
-    }
-}
-*/
 int
 fibo_get_supported_module_number(void)
 {
@@ -760,19 +776,19 @@ fibo_get_supported_module_info(void *module_info, int index)
     int ret      = RET_ERROR;
 
     if (!module_info) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
     list_len = fibo_get_supported_module_number();
     if (index < 0 || index > list_len - 1) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
     ret = fibo_adapter_get_supported_module_info((Fibocom_module_info_type *)module_info, index);
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
@@ -885,27 +901,34 @@ fibo_helper_device_check(void)
 
         switch (retry_flag) {
             case 3:
-                FIBO_LOG_CRITICAL ("reach max retry! drop all remained init process!\n");
+                FIBO_LOG_ERROR ("reach max retry! drop all remained init process!\n");
                 devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, NULL);
+                if (!devcheck_thread) {
+                    FIBO_LOG_ERROR("thread init failed!\n");
+                    return;
+                }
                 break;
             case 2:
-                FIBO_LOG_CRITICAL ("dont find valid cellular twice, will trigger HW reboot!\n");
+                FIBO_LOG_ERROR ("dont find valid cellular twice, will trigger HW reboot!\n");
                 // trigger HW reboot
             case 1:
-		while (retrycount < 20) {
-		    ret = fibo_adapter_check_cellular (&res);
-		    if (ret == RET_OK && res == RET_OK) {
-		        fibo_adapter_control_mbim_init();
-		        // device check is used to monitor all devices' add and remove event through udev.
-		        devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, NULL);
-		        return;
-		    }
-		    FIBO_LOG_CRITICAL ("dont find valid cellular, will retry!\n");
-		    g_usleep (1000 * 1000 * 3);
-		}
-		break;
+                while (retrycount < 20) {
+                    ret = fibo_adapter_check_cellular (&res);
+                    if (ret == RET_OK && res == RET_OK) {
+                        fibo_adapter_control_mbim_init();
+                        // device check is used to monitor all devices' add and remove event through udev.
+                        devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, NULL);
+                        if (!devcheck_thread) {
+                            FIBO_LOG_ERROR("thread init failed!\n");
+                        }
+                        return;
+                    }
+                    FIBO_LOG_ERROR ("dont find valid cellular, will retry!\n");
+                    g_usleep (1000 * 1000 * 3);
+                }
+                break;
             default:
-                FIBO_LOG_CRITICAL ("Invalid flag, exit device check thread!\n");
+                FIBO_LOG_ERROR ("Invalid flag, exit device check thread!\n");
                 return;
         }
     }
@@ -913,12 +936,16 @@ fibo_helper_device_check(void)
     return;
 }
 
-void fibo_helper_mmevent_register(void)
+gint fibo_helper_mmevent_register(void)
 {
     GThread                *rcvsignal_thread = NULL;
 
     rcvsignal_thread = g_thread_new ("rcvsignal", (GThreadFunc)fibo_register_module_event_signal, NULL);
-    return;
+    if (!rcvsignal_thread) {
+        FIBO_LOG_ERROR("thread init failed!\n");
+        return RET_ERROR;
+    }
+    return RET_OK;
 }
 
 void
@@ -932,7 +959,7 @@ fibo_helper_main_receiver(void)
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!");
+        FIBO_LOG_ERROR("malloc failed!");
         // g_thread_stop(fibo_adapter_device_Check);
         return;
     }
@@ -978,7 +1005,7 @@ void fibo_helper_control_receiver(void)
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!");
+        FIBO_LOG_ERROR("malloc failed!");
         // g_thread_stop(fibo_adapter_device_Check);
         return;
     }
@@ -998,7 +1025,7 @@ void fibo_helper_control_receiver(void)
 
         user_data = (fibo_async_struct_type *)msgs->mtext;
         if (!user_data->cid) {
-            FIBO_LOG_CRITICAL("cid invalid!\n");
+            FIBO_LOG_ERROR("cid invalid!\n");
             continue;
         }
 
@@ -1012,12 +1039,12 @@ void fibo_helper_control_receiver(void)
                 break;
             case CTL_MBIM_END:
                 if (gMainLoop) {
-                    FIBO_LOG_CRITICAL ("Caught signal, stopping fibo-helper-mbim...\n");
+                    FIBO_LOG_ERROR ("Caught signal, stopping fibo-helper-mbim...\n");
                     g_idle_add ((GSourceFunc) g_main_loop_quit, gMainLoop);
                 }
                 break;
             default:
-                FIBO_LOG_CRITICAL("Invalid control cid! refuse to execute!\n");
+                FIBO_LOG_ERROR("Invalid control cid! refuse to execute!\n");
         }
     }
 
@@ -1041,11 +1068,10 @@ fibo_register_helper_service(void)
     return owner_id;
 }
 
-void
-fibo_set_necessary_signals()
+int
+fibo_set_linux_app_signals()
 {
-    fibo_adapter_set_unix_signals();
-    return;
+    return fibo_adapter_set_linux_app_signals();
 }
 
 void
@@ -1065,9 +1091,9 @@ int fibo_get_helper_seq_id(int seq)
     return fibo_adapter_get_helper_seq_id(seq);
 }
 
-int fibo_helper_sequence_init(void)
+int fibo_helper_queue_init(void)
 {
-    return fibo_adapter_helper_sequence_init();
+    return fibo_adapter_helper_queue_init();
 }
 
 /* ---------------------------------Begin: add customized function.------------------------------------------ */
@@ -1081,14 +1107,14 @@ fibo_prase_sw_reboot(gint serviceid, gint cid, gint rtcode, gint payloadlen, gch
     fibo_async_struct_type  *user_data   = NULL;
 
     if (!callback) {
-        FIBO_LOG_CRITICAL("Illegal param!\n");
+        FIBO_LOG_ERROR("Illegal param!\n");
         return RET_ERROR;
     }
 
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -1110,7 +1136,7 @@ fibo_prase_sw_reboot(gint serviceid, gint cid, gint rtcode, gint payloadlen, gch
     ret = fibo_adapter_send_message_async(req_cmd, strlen(req_cmd), DEFAULT_TIMEOUT, (GAsyncReadyCallback)callback, user_data);
     // here wont free user_data cause callback will use it and free it!
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send request failed, error:%d\n", ret);
+        FIBO_LOG_ERROR("Send request failed, error:%d\n", ret);
         return RET_ERROR;
     }
 
@@ -1143,7 +1169,7 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
     response = mbim_device_command_finish (device, res, &error);
 
     if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
-        FIBO_LOG_CRITICAL ("error: operation failed: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
         fibo_resp_error_result_callback(device, res, userdata);
         return;
     }
@@ -1153,7 +1179,7 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
             &ret_size,
             &ret_str,
             &error)) {
-        FIBO_LOG_CRITICAL ("error: couldn't parse response message: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
 
         malloc_flag = FALSE;
         ret_size = strlen(error_resp);
@@ -1162,7 +1188,7 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
     else {
         resp_str = malloc(ret_size + 1);
         if (!resp_str) {
-            FIBO_LOG_CRITICAL("malloc space for resp data failed!\n");
+            FIBO_LOG_ERROR("malloc space for resp data failed!\n");
             fibo_resp_error_result_callback(device, res, userdata);
             return;
         }
@@ -1175,7 +1201,7 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
 
     user_data = (fibo_async_struct_type *)userdata;
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
         fibo_resp_error_result_callback(device, res, userdata);
         return;
     }
@@ -1189,8 +1215,8 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
     ret_size = user_data->payloadlen;
     resp_str = malloc(ret_size + 1);
     if (!resp_str) {
-        FIBO_LOG_CRITICAL("malloc space for resp data failed!\n");
-        fibo_resp_error_result_callback(device, res, userdata);
+        FIBO_LOG_ERROR("malloc space for resp data failed!\n");
+        fibo_resp_error_result_callback(device, res, user_data);
         return;
     }
     memset(resp_str, 0, ret_size + 1);
@@ -1210,7 +1236,7 @@ fibo_prase_get_ap_version_ready (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
         // if send resp fail, means default error resp will return error as well, aka we cant do anything.
     }
 
@@ -1228,14 +1254,14 @@ fibo_prase_get_ap_version(gint serviceid, gint cid, gint rtcode, gint payloadlen
     fibo_async_struct_type  *user_data   = NULL;
 
     if (!callback) {
-        FIBO_LOG_CRITICAL("Illegal param!\n");
+        FIBO_LOG_ERROR("Illegal param!\n");
         return RET_ERROR;
     }
 
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -1258,7 +1284,7 @@ fibo_prase_get_ap_version(gint serviceid, gint cid, gint rtcode, gint payloadlen
     ret = fibo_adapter_send_message_async(req_cmd, strlen(req_cmd), DEFAULT_TIMEOUT, (GAsyncReadyCallback)callback, user_data);
     // here wont free user_data cause callback will use it and free it!
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send request failed, error:%d\n", ret);
+        FIBO_LOG_ERROR("Send request failed, error:%d\n", ret);
         return RET_ERROR;
     }
 
@@ -1266,6 +1292,7 @@ fibo_prase_get_ap_version(gint serviceid, gint cid, gint rtcode, gint payloadlen
     return RET_OK;
 }
 
+// if one callback called this callback, caller dont concern user_data cause here will free it!
 void
 fibo_resp_error_result_callback (MbimDevice   *device,
                                  GAsyncResult *res,
@@ -1283,7 +1310,7 @@ fibo_resp_error_result_callback (MbimDevice   *device,
 
     user_data = (fibo_async_struct_type *)userdata;
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -1301,7 +1328,7 @@ fibo_resp_error_result_callback (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
         return;
     }
 
@@ -1322,7 +1349,7 @@ fibo_resp_error_result(gint serviceid, gint cid, gint rtcode, gint payloadlen, g
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
         return RET_ERROR;
     }
 
@@ -1349,7 +1376,6 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
     const guint8                        *ret_str       =  NULL;
     g_autoptr(MbimMessage)              response       =  NULL;
     gchar                               *resp_str      =  NULL;
-    gint                                serviceid      =  0;
     gint                                cid            =  0;
     gint                                rtcode         =  0;
     gint                                payloadlen     =  0;
@@ -1365,7 +1391,7 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
     response = mbim_device_command_finish (device, res, &error);
 
     if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
-        FIBO_LOG_CRITICAL ("error: operation failed: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
         return RET_ERROR;
     }
 
@@ -1374,7 +1400,7 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
             &ret_size,
             &ret_str,
             &error)) {
-        FIBO_LOG_CRITICAL ("error: couldn't parse response message: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
 
         malloc_flag = FALSE;
         ret_size = strlen(error_resp);
@@ -1395,7 +1421,9 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
 
     user_data = (fibo_async_struct_type *)userdata;
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
+        fibo_resp_error_result_callback(device, res, userdata);
+        return RET_ERROR;
     }
     else {
         service_id = user_data->serviceid;
@@ -1406,8 +1434,9 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
     ret_size = user_data->payloadlen;
     resp_str = malloc(ret_size + 1);
     if (!resp_str) {
-        FIBO_LOG_CRITICAL("malloc space for resp data failed!\n");
-        fibo_resp_error_result_callback(device, res, userdata);
+        FIBO_LOG_ERROR("malloc space for resp data failed!\n");
+        fibo_resp_error_result_callback(device, res, user_data);
+        user_data = NULL;
         return RET_ERROR;
     }
     memset(resp_str, 0, ret_size + 1);
@@ -1419,11 +1448,8 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
 
     if(strstr(resp_str,"Read Error") != NULL)
     {
-        fibo_adapter_alloc_and_send_resp_structure(serviceid, cid, 1, 0, NULL);
-        if (userdata) {
-            free(userdata);
-            userdata = NULL;
-        }
+        fibo_resp_error_result_callback(device, res, user_data);
+        user_data = NULL;
         return RET_OK;
     }
 
@@ -1462,7 +1488,7 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
         p = strtok(NULL,"\r\n");
         resp_str = p;
         FIBO_LOG_DEBUG("%s   %d \n", resp_str ,__LINE__);
-        if (resp_str != NULL && strlen(resp_str) != 0) { 
+        if (resp_str != NULL && strlen(resp_str) != 0) {
 		if(strstr(resp_str,"1") != NULL)
 		{
 		    sprintf(resp_str,"success");
@@ -1495,18 +1521,19 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
 
     if (resp_str == NULL || strlen(resp_str) == 0) {
         FIBO_LOG_DEBUG("found a NULL pointer!\n");
-        fibo_resp_error_result_callback(device, res, userdata);
+        fibo_resp_error_result_callback(device, res, user_data);
+        user_data = NULL;
         return RET_OK;
     }
 
-    if (userdata) {
-        free(userdata);
-        userdata = NULL;
+    if (user_data) {
+        free(user_data);
+        user_data = NULL;
     }
 
     if(strstr(resp_str,"ERROR") != NULL)
     {
-        FIBO_LOG_CRITICAL("[%s]:at_cmd return error:%s\n", __func__, resp_str);
+        FIBO_LOG_ERROR("[%s]:at_cmd return error:%s\n", __func__, resp_str);
         rtcode = 1;
     }
     // further: add func to deal with AT resp.
@@ -1515,7 +1542,7 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
 //    if (resp_str && malloc_flag)
@@ -1537,14 +1564,14 @@ fibo_prase_send_req_atcmd(gint     serviceid,
     fibo_async_struct_type *user_data = NULL;
 
     if (serviceid > ENUM_MAX || !payload_str || (payloadlen != 0 && payload_str[payloadlen] != '\0')  || !callback) {
-        FIBO_LOG_CRITICAL("Illegal param, %d, %d!\n", payloadlen, (payload_str == NULL));
+        FIBO_LOG_ERROR("Illegal param, %d, %d!\n", payloadlen, (payload_str == NULL));
         return RET_ERROR;
     }
 
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -1565,7 +1592,7 @@ fibo_prase_send_req_atcmd(gint     serviceid,
 
     ret = fibo_adapter_send_message_async(req_cmd, strlen(req_cmd), DEFAULT_TIMEOUT, (GAsyncReadyCallback)callback, user_data);
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send request failed, error:%d\n", ret);
+        FIBO_LOG_ERROR("Send request failed, error:%d\n", ret);
         return RET_ERROR;
     }
 
@@ -1598,7 +1625,7 @@ fibo_prase_get_fcc_status_ready (MbimDevice   *device,
     response = mbim_device_command_finish (device, res, &error);
 
     if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
-        FIBO_LOG_CRITICAL ("error: operation failed: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
         return RET_ERROR;
     }
 
@@ -1607,7 +1634,7 @@ fibo_prase_get_fcc_status_ready (MbimDevice   *device,
             &ret_size,
             &ret_str,
             &error)) {
-        FIBO_LOG_CRITICAL ("error: couldn't parse response message: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
 
         malloc_flag = FALSE;
         ret_size = strlen(error_resp);
@@ -1627,7 +1654,7 @@ fibo_prase_get_fcc_status_ready (MbimDevice   *device,
 
     user_data = (fibo_async_struct_type *)userdata;
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -1638,7 +1665,7 @@ fibo_prase_get_fcc_status_ready (MbimDevice   *device,
     ret_size = user_data->payloadlen;
     resp_str = malloc(ret_size + 1);
     if (!resp_str) {
-        FIBO_LOG_CRITICAL("malloc space for resp data failed!\n");
+        FIBO_LOG_ERROR("malloc space for resp data failed!\n");
         fibo_resp_error_result_callback(device, res, userdata);
         return RET_ERROR;
     }
@@ -1691,17 +1718,17 @@ fibo_prase_get_fcc_status_ready (MbimDevice   *device,
     }
 
     if (fcc_status == NULL) {
-        FIBO_LOG_CRITICAL ("at:%s\n", ret_str + at_command_prefix_end_index);
+        FIBO_LOG_ERROR ("at:%s\n", ret_str + at_command_prefix_end_index);
         return RET_ERROR;
     }
 
-    FIBO_LOG_CRITICAL ("fcc_status: %s", fcc_status);
+    FIBO_LOG_ERROR ("fcc_status: %s", fcc_status);
     ret = alloc_and_send_resp_structure(service_id, cid, rtcode, strlen(fcc_status), fcc_status);
 
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
     if (resp_str && malloc_flag)
@@ -1723,7 +1750,7 @@ int fibo_prase_send_set_atcmd(gint     serviceid,
 
     parameter_req_cmd = malloc(sizeof(char) * 128);
     if (parameter_req_cmd) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
     }
     memset(parameter_req_cmd, 0, sizeof(parameter_req_cmd));
 
@@ -1807,7 +1834,7 @@ void fibo_fastboot_reboot()
     int ret;
     reboot_fp = popen("fastboot reboot", "r");
     if (reboot_fp == NULL) {
-        FIBO_LOG_CRITICAL ("[%s:]popen reboot_fp failed!\n",__func__);
+        FIBO_LOG_ERROR ("[%s:]popen reboot_fp failed!\n",__func__);
         return ;
     }
     ret = pclose(reboot_fp);
@@ -1849,7 +1876,7 @@ int fibocom_edl_flash_ready (MbimDevice   *device,
     user_data = (fibo_async_struct_type *)userdata;
 
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -1887,7 +1914,7 @@ int fibocom_edl_flash_ready (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
     if (resp_str && malloc_flag)
@@ -1928,7 +1955,7 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
     response = mbim_device_command_finish (device, res, &error);
 
     if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
-        FIBO_LOG_CRITICAL ("error: operation failed: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
         return RET_ERROR;
     }
 
@@ -1937,7 +1964,7 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
             &ret_size,
             &ret_str,
             &error)) {
-        FIBO_LOG_CRITICAL ("error: couldn't parse response message: %s\n", error->message);
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
 
         malloc_flag = FALSE;
 
@@ -1957,7 +1984,7 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
     user_data = (fibo_async_struct_type *)userdata;
 
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -1968,7 +1995,7 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
     ret_size = user_data->payloadlen;
     resp_str = malloc(ret_size + 1);
     if (!resp_str) {
-        FIBO_LOG_CRITICAL("malloc space for resp data failed!\n");
+        FIBO_LOG_ERROR("malloc space for resp data failed!\n");
         fibo_resp_error_result_callback(device, res, userdata);
         return RET_ERROR;
     }
@@ -2015,7 +2042,7 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
     if (resp_str && malloc_flag)
@@ -2185,7 +2212,7 @@ void fibo_program_payload_analysis(char * payload,Payload_Analysis *payload_anal
 
     if((partition_flash_flag->ap == 0) && (partition_flash_flag->modem == 0) && (partition_flash_flag->dev == 0) && (partition_flash_flag->oem == 0) && (partition_flash_flag->op == 0))
     {
-        FIBO_LOG_CRITICAL("[%s:]don't match partation and path\n",__func__);
+        FIBO_LOG_ERROR("[%s:]don't match partation and path\n",__func__);
         fibo_fastboot_reboot();
         fibocom_gdbus_helper_emit_fastboot_status(g_skeleton,"don't match partation and path,rebooting module");
     }
@@ -2246,14 +2273,14 @@ int fibocom_get_zenity_environment_variable(char zenity_environment_variable[],i
     if(NULL == get_zenity_environment_variable_fp)
     {
         perror("get_zenity_environment_variable error");
-        FIBO_LOG_CRITICAL("open zenity_environment_variable error\n");
+        FIBO_LOG_ERROR("open zenity_environment_variable error\n");
         return RET_ERROR;
     }
 
     ret = fread(zenity_environment_variable,sizeof(char),length,get_zenity_environment_variable_fp);
     if(!ret)
     {
-        FIBO_LOG_CRITICAL("read zenity_environment_variable error\n");
+        FIBO_LOG_ERROR("read zenity_environment_variable error\n");
         pclose(get_zenity_environment_variable_fp);
         return RET_ERROR;
     }
@@ -2329,8 +2356,10 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
     ret = fibocom_get_zenity_environment_variable(zenity_environment_variable,environment_variable_length);
     if(ret != RET_OK)
     {
-        FIBO_LOG_CRITICAL("get zenity_environment_variable path error\n");
+        FIBO_LOG_ERROR("get zenity_environment_variable path error\n");
+        /*If the progress bar envronment variable fails to be read,the burn proceduce is still executed
         return NULL;
+        */
     }
     fibocom_strcat_zenity_environment_variable(zenity_environment_variable,set_zenity_environment_variable);
 
@@ -2682,18 +2711,6 @@ gpointer fibocom_qdl_flash_command(gpointer payload)
     char buf[1024]= {0};
     int i = 0;
 
-    g_autoptr(GError)                   error          =  NULL;
-    guint32                             ret_size       =  0;
-    const guint8                        *ret_str       =  NULL;
-    g_autoptr(MbimMessage)              response       =  NULL;
-    gchar                               *resp_str      =  NULL;
-    gint                                service_id      =  0;
-    gint                                cid            =  0;
-    gint                                rtcode         =  0;
-    gint                                payloadlen     =  0;
-    gchar                               *atcommand_str =  NULL;
-    gboolean                            malloc_flag    =  TRUE;
-    fibo_async_struct_type              *user_data     =  NULL;
     int ret = 0;
     char zenity_environment_variable[64] = {0};
     int environment_variable_length = 64;
@@ -2707,8 +2724,10 @@ gpointer fibocom_qdl_flash_command(gpointer payload)
     ret = fibocom_get_zenity_environment_variable(zenity_environment_variable,environment_variable_length);
     if(ret != RET_OK)
     {
-        FIBO_LOG_CRITICAL("get zenity_environment_variable path error\n");
+        FIBO_LOG_ERROR("get zenity_environment_variable path error\n");
+        /*If the progress bar envronment variable fails to be read,the burn proceduce is still executed
         return NULL;
+        */
     }
     fibocom_strcat_zenity_environment_variable(zenity_environment_variable,set_zenity_environment_variable);
     FIBO_LOG_DEBUG("%s %d\n",qdl_flash_cmd,__LINE__);
@@ -2864,62 +2883,22 @@ gpointer fibocom_qdl_flash_command(gpointer payload)
     return NULL;
 }
 
-static gboolean emit_edl_flash_status_signal(const char* p)
-{
-    FIBO_LOG_CRITICAL("emit_edl_flash_status_signal invoked\n");
-
-    if(g_skeleton != NULL)
-    {
-        if(p == NULL)
-        {
-            FIBO_LOG_CRITICAL("[%s]:g_skeleton is NULL\n", __func__);
-        }
-        else
-        {
-            FIBO_LOG_CRITICAL("[%s]:flash changed!:%s\n", __func__, p);
-            fibocom_gdbus_helper_emit_edl_status(g_skeleton,(const char*)p);
-        }
-    }
-    FIBO_LOG_CRITICAL("[%s]:flash ====== changed!\n", __func__);
-    return FALSE;
-}
-
-static gboolean emit_fastboot_flash_status_signal(const char* p)
-{
-    FIBO_LOG_CRITICAL("enter\n");
-    if(g_skeleton != NULL)
-    {
-        if(p == NULL)
-        {
-            FIBO_LOG_CRITICAL("[%s]:g_skeleton is NULL\n", __func__);
-        }
-        else
-        {
-            FIBO_LOG_CRITICAL("[%s]:flash changed!:%s\n", __func__, p);
-            fibocom_gdbus_helper_emit_fastboot_status(g_skeleton,(const char*)p);
-        }
-    }
-    FIBO_LOG_CRITICAL("[%s]:flash ====== changed!\n", __func__);
-    return FALSE;
-}
-
-
 gpointer edl_flashing_command(void *data)
 {
-    FIBO_LOG_CRITICAL("[%s]: ===========================================:%s\n",__func__, (char *)data);
+    FIBO_LOG_ERROR("[%s]: ===========================================:%s\n",__func__, (char *)data);
     emit_edl_flash_status_signal("flashing...");
     if((char *)data)
     {
-        FIBO_LOG_CRITICAL("[%s]: ===========================================:%s\n",__func__, (char *)data);
+        FIBO_LOG_ERROR("[%s]: ===========================================:%s\n",__func__, (char *)data);
     }
     fibocom_qdl_flash_command((char *)data);
     emit_edl_flash_status_signal("flashing ok");
-    FIBO_LOG_CRITICAL("[%s]:======================================== :%s\n",__func__, (char *)data);
+    FIBO_LOG_ERROR("[%s]:======================================== :%s\n",__func__, (char *)data);
 }
 
 gpointer fastboot_flashing_command(void *data)
 {
-    FIBO_LOG_CRITICAL("[%s]: ===========================================:%s\n",__func__, (char *)data);
+    FIBO_LOG_ERROR("[%s]: ===========================================:%s\n",__func__, (char *)data);
     fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flashing..."), "fastboot flashing...");
     //emit_fastboot_flash_status_signal("fastboot flashing...");
     if((char *)data)
@@ -2927,7 +2906,7 @@ gpointer fastboot_flashing_command(void *data)
         fibocom_fastboot_flash_command((char *)data);
         fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flashing ok"), "fastboot flashing ok");
         //emit_fastboot_flash_status_signal("fastboot flashing ok");
-        FIBO_LOG_CRITICAL("[%s]:======================================== :%s\n",__func__, (char *)data);
+        FIBO_LOG_ERROR("[%s]:======================================== :%s\n",__func__, (char *)data);
     }
     if(data)
     {
@@ -2955,14 +2934,14 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
     int ret = 0;
 
 
-    FIBO_LOG_CRITICAL ("===============enter!\n");
+    FIBO_LOG_ERROR ("===============enter!\n");
     payload = malloc(sizeof(char) * 512);
     memset(payload,0,sizeof(char) * 512);
 
     user_data = (fibo_async_struct_type *)userdata;
 
     if (!user_data) {
-        FIBO_LOG_CRITICAL ("NULL pointer!\n");
+        FIBO_LOG_ERROR ("NULL pointer!\n");
     }
     else {
         service_id = user_data->serviceid;
@@ -2992,7 +2971,7 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
     fibo_mutex_keep_pointer_exist_unlock();
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("send resp to main loop failed!\n");
+        FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
     FIBO_LOG_DEBUG("%s     %d", payload,__LINE__);

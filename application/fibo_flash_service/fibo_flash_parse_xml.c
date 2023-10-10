@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "fibo_flash_main.h"
+#include "safe_str_lib.h"
 
 #ifndef EOK
 #define EOK (0)

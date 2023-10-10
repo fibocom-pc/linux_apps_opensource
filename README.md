@@ -1,57 +1,51 @@
-Fibocom Linux apps.
-This is a Fibocom linux apps set project for wwan devices.
-  Flash service: firmware update, switch, recovery.
-  Ma service: fccunlock(It is not open source. Contact the OEM to provide it).
-  Config service: OEM configuration function.
-  Helper service: provider dbus API for Flash/Ma/Config service.
+# Fibocom Linux apps
+This is a Fibocom linux apps set project for wwan devices.<br>
+  **Flash service:** firmware update, switch, recovery.<br>
+  **Ma service:** fccunlock(It is not open source. Contact the OEM to provide it).<br>
+  **Config service:** OEM configuration function.<br>
+  **Helper service:** provider dbus API for Flash/Ma/Config service.<br>
 
-License.
-The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.
+# License
+The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
 
-notice:
-  Service must be used with fw_package. Before installing service, ensure that fw_package has been installed. Obtain the fw package from the corresponding OEM .
-  fw_switch using fastboot so you can install fastboot with command `sudo apt-get install fastboot`
+# Notice
+  Service must be used with fw_package. Before installing service, ensure that fw_package has been installed. Obtain the fw package from the corresponding OEM .<br>
+  fw_switch using fastboot so you can install fastboot with command `sudo apt-get install fastboot`<br>
 
-Building on Ubuntu
+# Building on Ubuntu
 
-1. Install
-  sudo apt install camke
-  sudo apt install build-essential
-  sudo apt install -y pkg-config
-  sudo apt install libglib2.0-dev  
-  sudo apt install libxml2-dev
-  sudo apt install libudev-dev
-  sudo apt install libmbim-glib-dev
-  sudo apt install libdbus-1-dev
-  sudo apt install libmm-glib-dev
+## 1. Install
+
+- sudo apt install camke<br>
+- sudo apt install build-essential<br>
+- sudo apt install -y pkg-config<br>
+- sudo apt install libglib2.0-dev<br>
+- sudo apt install libxml2-dev<br>
+- sudo apt install libudev-dev<br>
+- sudo apt install libmbim-glib-dev<br>
+- sudo apt install libdbus-1-dev<br>
+- sudo apt install libmm-glib-dev<br>
+
+## 2. Build
+./build.sh [operator]<br>
+operator:<br>
+  1. build_all (build service code and create release folder,config file )<br>
+  2. clean_project (clean project remove build and release folder)<br>
 
 
-2. Build
-  ./build.sh [operator]
-  operator: 1)build_all (build service code and make deb file )
-            2)build_service (build service code include fibo_helper,fibo_flash,fibo_config)
-            3)make_deb_file (build debian file)
-            4)clean_project (clean project)
+examples:./build.sh 1  (build service code and create release folder,config file)<br>
 
-  examples:./build.sh 1  (build_service and make debian file.)
 
-3. install apps
- cd ./release/dpkg
- sudo dpkg -i fiboapps-x.x.x.deb
+## 3. If using systemd, use
+- start service<br>
+	sudo systemctl start fibo_xxx.service<br>
+- Get status<br>
+	sudo systemctl status fibo_xxx.service<br>
+- Stop service<br>
+	sudo systemctl stop fibo_xxx.service<br>
 
-4.
-If using systemd, use
-- start service
-	sudo systemctl start fibo_xxx.service
-- Get status
-	sudo systemctl status fibo_xxx.service
-- Stop service
-	sudo systemctl stop fibo_xxx.service
-
-5. uninstall apps
- sudo dpkg -r linux-apps
-
-version:1.0.0
-  first version, add  flash firmware,recovery  service.
+# release history
+- version:1.0.0<br>
+  first version, add  flash firmware,recovery  service.<br>
 
 

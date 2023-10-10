@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file fibo_flash_main.c
+ * @file fibo_helper_adapter.h
  * @author rick.chen@fibocom.com (chenhaotian)
  * @brief
  * @version 1.0
@@ -52,14 +52,14 @@ typedef enum
 {
     SEQ_INPUT  =  0,
     SEQ_OUTPUT =  1
-}sequence_type;
+}queue_enum_type;
 
 typedef enum
 {
     MSG_ALL     =  0,
     MSG_NORMAL  =  1,
     MSG_CONTROL =  2
-}seq_message_type;
+}seq_message_enum_type;
 
 typedef enum
 {
@@ -67,7 +67,7 @@ typedef enum
     OP_READ    =  OP_MIN,
     OP_WRITE   =  1,
     OP_MAX     =  OP_WRITE
-}at_operate_type;
+}at_operate_enum_type;
 
 #define FIBOCOM_MODULE_NAME_LEN          16  // max size like "FM101R-GL-00-30"
 #define FIBOCOM_MODULE_USBID_LEN         10  // max size like "2cb7:01a2"
@@ -85,7 +85,6 @@ typedef struct
     cellular_type_enum_type  cellular_type;
     char                     work_module_name[FIBOCOM_MODULE_NAME_LEN];
     gint                     module_info_index;
-    char                     path[AT_COMMAND_LEN];
 } fibocom_cellular_type;
 
 typedef struct
@@ -110,7 +109,7 @@ typedef struct
 
 typedef struct
 {
-    long   mtype;     // reserved.
+    long   mtype;     // should be seq_message_type.
     char   mtext[0];  // should be fibo_async_struct_type.
 }helper_message_struct;
 
@@ -132,7 +131,7 @@ void     fibo_adapter_mutex_modem_info_unlock(void);
 void     fibo_adapter_mutex_modem_info_lock(void);
 void     fibo_adapter_mutex_force_sync_unlock(void);
 void     fibo_adapter_mutex_force_sync_lock(void);
-void     fibo_adapter_all_mutex_init(void);
+gint     fibo_adapter_all_mutex_init(void);
 int      fibo_adapter_send_at_command(const char *req_cmd, char *rspbuf, const char *mbimportname);
 int      fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload_str);
 int      fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload_str);
@@ -141,7 +140,7 @@ int      fibo_adapter_get_supported_module_number(void);
 int      fibo_adapter_get_supported_module_info(Fibocom_module_info_type *module_info, gint index);
 int      fibo_adapter_get_work_cellular_info(fibocom_cellular_type *work_cellular_info);
 int      fibo_adapter_set_work_cellular_info(fibocom_cellular_type *work_cellular_info);
-void     fibo_adapter_set_unix_signals(void);
+gint     fibo_adapter_set_linux_app_signals(void);
 void     fibo_adapter_send_message_resp(MbimDevice *device, GAsyncResult *res);
 gint     fibo_adapter_send_message_async(void *message, guint32 len, guint32 timeout, GAsyncReadyCallback callback, gpointer user_data);
 void     fibo_adapter_udev_deinit(void);
@@ -162,6 +161,6 @@ gint     fibo_adapter_get_normal_resp_from_mbim(void *msgs);
 gint     fibo_adapter_send_control_req_to_mbim(void *msgs, int msgsize);
 gint     fibo_adapter_send_req_to_mbim(void *msgs, int msgsize);
 int      fibo_adapter_get_helper_seq_id(int seq);
-int      fibo_adapter_helper_sequence_init(void);
+int      fibo_adapter_helper_queue_init(void);
 
 #endif /* _FIBO_HELPER_ADAPTER_H_ */

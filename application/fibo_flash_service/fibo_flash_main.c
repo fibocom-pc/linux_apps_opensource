@@ -35,7 +35,8 @@
 #include <assert.h>
 #include <ctype.h>
 #include "fibo_flash_main.h"
-#include "common/fibocom-helper-gdbus-generated.h"
+#include "fibocom-helper-gdbus-generated.h"
+#include "safe_str_lib.h"
 
 static const char *allow_cmds[CMD_MAX_LIST] = {
     "dmidecode -t 2 | grep 'Product Name' | cut -d ':' -f 2",
@@ -1226,7 +1227,8 @@ void noport_precess()
         FIBO_LOG_INFO("init timer error!\n");
     }*/
 
-    ret = start_flash_timer(1);
+    //no port, add 3min timer
+    ret = start_flash_timer(3);
     if(!ret)
     {
         perror("start timer error\n");
@@ -1607,7 +1609,7 @@ void *fibo_recovery_monitor(void *arg)
     char *modem = NULL;
 
 //    openlog("FWRecovery", LOG_CONS | LOG_PID, LOG_USER);
-    FIBO_LOG_INFO("[%s]:enter recovery thread\nInit timer.....", __func__);
+    FIBO_LOG_INFO("[%s]:enter recovery thread\nInit timer.....\n", __func__);
     if(!init_flash_timer())
     {
         FIBO_LOG_INFO("[%s]:init_flash_timer error\n", __func__);
@@ -1655,7 +1657,7 @@ void *fibo_recovery_monitor(void *arg)
     else if(state && *state == NO_PORT)
     {
         //add timer 5min
-        if(!start_flash_timer(1))
+        if(!start_flash_timer(5))
         {
             FIBO_LOG_INFO("[%s]:start_flash_timer error\n", __func__);
         }

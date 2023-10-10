@@ -34,19 +34,22 @@ set(CMAKE_C_COMPILER gcc)
 set(FLASH_PREPROCESSOR_DEF "-fstack-protector-strong -O2 -Wformat -Wformat-security  -fPIC -std=gnu99")
 add_definitions(${FLAH_PREPROCESSOR_DEF})
 
+find_program(GDBUSCODEGEN NAMES gdbus-codegen)
+if (NOT GDBUSCODEGEN)
+	message(SEND_ERROR "Could not find gdbus-codegen")
+endif(NOT GDBUSCODEGEN)
 
 add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
         COMMAND ${GDBUSCODEGEN}  --generate-c-code=fibocom-helper-gdbus-generated --c-namespace=FibocomGdbus --interface-prefix com.fibocom. ${CMAKE_SOURCE_DIR}/application/dbus/introspection/com.fibocom.helper.xml
         COMMAND mkdir -p generated/
-        COMMAND mv fibocom-helper-gdbus-generated.h ${CMAKE_SOURCE_DIR}/application/include/common/
         COMMAND mv fibocom-helper-gdbus-generated.c generated/
         )
 ##################################
 # Fibocom linux flash service binary configuration
-
+include_directories(${PROJECT_BINARY_DIR}/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs)
+include_directories(${PROJECT_BINARY_DIR}/../safestringlib)
 
 set(source_files
     fibo_flash_main.c fibo_flash_parse_xml.c generated/fibocom-helper-gdbus-generated.c)
@@ -54,7 +57,8 @@ set(source_files
 add_executable(fibo_flash
     ${source_files})
 
+target_link_libraries(fibo_flash ${PROJECT_BINARY_DIR}/../safestringlib/libsafestring_static.a)
+
 target_link_libraries(fibo_flash
     PkgConfig::deps
-    LibXml2::LibXml2
-    libsafestring.a)
+    LibXml2::LibXml2)

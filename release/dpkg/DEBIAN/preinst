@@ -1,6 +1,0 @@
-#!/bin/bash
-
-#not first insatll need stop service first
-if [[ -f ${path}fibo_config.service   &&  -f ${path}fibo_flash.service  &&   -f ${path}fibo_helper.service && -f ${path}fibo_helper_mbim.service ]];then
-  systemctl stop fibo_config.service fibo_flash.service fibo_helper.service fibo_helper_mbim.service
-fi

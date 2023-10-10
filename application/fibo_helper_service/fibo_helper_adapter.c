@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file fibo_flash_main.c
+ * @file fibo_helper_adapter.c
  * @author rick.chen@fibocom.com (chenhaotian)
  * @brief
  * @version 1.0
@@ -50,7 +50,7 @@ static pthread_mutex_t mutex_sim_insert_flag_operate;
 
 extern GMainLoop      *gMainLoop;
 extern GThread        *main_analyzer_thread;
-fibocom_cellular_type g_cellular_info                = {CELLULAR_STATE_UNKNOWN, CELLULAR_TYPE_UNKNOWN, "ERROR", -1, "ERROR"};
+fibocom_cellular_type g_cellular_info                = {CELLULAR_STATE_UNKNOWN, CELLULAR_TYPE_UNKNOWN, "ERROR", -1};
 async_user_data_type  user_data                      = {0, 0, NULL, NULL};
 
 extern FibocomGdbusHelper *g_skeleton;
@@ -59,7 +59,7 @@ extern FibocomGdbusHelper *g_skeleton;
 #define DEFAULT_CELLULAR_TYPE            "usb"
 #define PCIE_GREP_MODULE_CMD_LEN         0
 #define USB_GREP_MODULE_CMD_LEN          23  // max size like "lsusb | grep 2cb7:01a2"
-#define GREP_MBIM_PORT_CMD_LEN           30
+#define GREP_MBIM_PORT_CMD_LEN           30  // max size like "find /dev -name wwan0mbim0*" // should be 28.
 #define MODULE_ID_CHECK_CMD_LEN          (USB_GREP_MODULE_CMD_LEN >= PCIE_GREP_MODULE_CMD_LEN ? USB_GREP_MODULE_CMD_LEN : PCIE_GREP_MODULE_CMD_LEN)
 #define MM_PORT_MBIM_SIGNAL_NOTIFICATION "notification"
 #define RDONLY                           "r"
@@ -81,8 +81,8 @@ Fibocom_module_info_type module_info_table[] = {
 };
 
 /*--------------------------------------Below are Internal Funcs-------------------------------------------------------*/
-static gboolean
-quit_cb (gpointer user_data)
+static void
+quit_cb (int user_data)
 {
     gint output_seq_id = RET_ERROR;
     gint input_seq_id  = RET_ERROR;
@@ -100,11 +100,11 @@ quit_cb (gpointer user_data)
     system(cmd_buf);
 
     if (gMainLoop) {
-        FIBO_LOG_CRITICAL ("Caught signal, stopping main loop...\n");
-        g_idle_add ((GSourceFunc) g_main_loop_quit, gMainLoop);
+        FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");
+        g_main_loop_quit(gMainLoop);
     }
 
-    return FALSE;
+    return;
 }
 
 static gint
@@ -125,17 +125,12 @@ port_notification_cb (MbimDevice   *Device,
 
     raw_buffer = mbim_cid_get_printable (service, cid);
     if (!raw_buffer) {
-        FIBO_LOG_CRITICAL("raw buffer is NULL!\n");
+        FIBO_LOG_ERROR("raw buffer is NULL!\n");
         return RET_ERROR;
     }
 
     FIBO_LOG_DEBUG("Message:%s\n", raw_buffer);
-/*
-    // further: change to customized signal emit func.
-    g_signal_emit_by_name (mbimdevice,
-                           MM_PORT_MBIM_SIGNAL_NOTIFICATION,
-                           userdata);
-*/
+
     return RET_ERROR;
 }
 
@@ -211,7 +206,7 @@ fibo_udev_deinit(struct udev         **udev_addr,
 {
     if (!*udev_addr && !*monitor_addr)
     {
-        FIBO_LOG_CRITICAL("NULL pointer, seems already deinit!\n");
+        FIBO_LOG_ERROR("NULL pointer, seems already deinit!\n");
         return RET_OK;
     }
 
@@ -233,12 +228,12 @@ restore_main_signal_work(int signum)
     gint                   cid            = RET_ERROR;
     gint                   service_id     = RET_ERROR;
 
-    FIBO_LOG_CRITICAL("fibo-helper-mbim no resp!\n");
+    FIBO_LOG_ERROR("fibo-helper-mbim no resp!\n");
 
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!");
+        FIBO_LOG_ERROR("malloc failed!");
         // g_thread_stop(fibo_adapter_device_Check);
         return;
     }
@@ -246,7 +241,7 @@ restore_main_signal_work(int signum)
     // if alarm timeout, means there must be a message on input pipe, so this func always return RET_OK.
     ret = fibo_adapter_get_any_req_from_dbus(msgs);
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("cant get message!\n");
+        FIBO_LOG_ERROR("cant get message!\n");
         free(msgs);
         msgs = NULL;
         return;
@@ -309,7 +304,7 @@ helper_main_analyzer_timer_close(void)
 
 void
 fibo_adapter_trigger_app_exit(void) {
-    quit_cb(NULL);
+    quit_cb(0);
 }
 
 gint
@@ -324,7 +319,7 @@ fibo_adapter_alloc_and_send_resp_structure(gint serviceid, gint cid, gint rtcode
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -346,7 +341,7 @@ fibo_adapter_alloc_and_send_resp_structure(gint serviceid, gint cid, gint rtcode
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         free(user_data);
         user_data = NULL;
         return RET_ERROR;
@@ -359,7 +354,7 @@ fibo_adapter_alloc_and_send_resp_structure(gint serviceid, gint cid, gint rtcode
     ret = fibo_adapter_send_resp_to_dbus(msgs, 2048);
     if (ret != RET_OK) {
 
-        FIBO_LOG_CRITICAL("Send message failed!\n");
+        FIBO_LOG_ERROR("Send message failed!\n");
         free(user_data);
         user_data = NULL;
         free(msgs);
@@ -391,7 +386,7 @@ fibo_adapter_mutex_sim_insert_flag_operate_lock()
     return;
 }
 
-// keep_pointer_exist mutex will be used to keep all params on function's callback can be used normally.
+// mbim_flag_operate mutex will be used to keep all params on function's callback can be used normally.
 void
 fibo_adapter_mutex_mbim_flag_operate_unlock()
 {
@@ -451,7 +446,7 @@ fibo_adapter_mutex_force_sync_lock()
     return;
 }
 
-void
+gint
 fibo_adapter_all_mutex_init()
 {
     int ret = RET_ERROR;
@@ -463,10 +458,11 @@ fibo_adapter_all_mutex_init()
     ret |= pthread_mutex_init(&mutex_sim_insert_flag_operate, NULL);
     // ret |= pthread_mutex_init(&mutex_mbim_fail_flag_operate, NULL);
 
-    if (ret != RET_OK)
-        FIBO_LOG_CRITICAL("init mutex failed!\n");
-
-    return;
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("init mutex failed!\n");
+        return ret;
+    }
+    return RET_OK;
 }
 
 int
@@ -480,7 +476,7 @@ fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload
 
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL) {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -501,7 +497,7 @@ fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload
 
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL) {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         free(user_data);
         user_data = NULL;
         return RET_ERROR;
@@ -518,7 +514,7 @@ fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload
     msgs = NULL;
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send message failed!\n");
+        FIBO_LOG_ERROR("Send message failed!\n");
         return RET_ERROR;
     }
 
@@ -536,7 +532,7 @@ fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload
 
     user_data = (fibo_async_struct_type *)malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
     if (user_data == NULL) {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         return RET_ERROR;
     }
 
@@ -557,7 +553,7 @@ fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload
 
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL) {
-        FIBO_LOG_CRITICAL("malloc failed!\n");
+        FIBO_LOG_ERROR("malloc failed!\n");
         free(user_data);
         user_data = NULL;
         return RET_ERROR;
@@ -574,7 +570,7 @@ fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload
     msgs = NULL;
 
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send message failed!\n");
+        FIBO_LOG_ERROR("Send message failed!\n");
         return RET_ERROR;
     }
 
@@ -637,15 +633,14 @@ fibo_adapter_set_work_cellular_info(fibocom_cellular_type *work_cellular_info)
     return RET_OK;
 }
 
-void
-fibo_adapter_set_unix_signals()
+gint
+fibo_adapter_set_linux_app_signals()
 {
-    g_unix_signal_add (SIGINT,  (GSourceFunc)quit_cb, NULL);
-    g_unix_signal_add (SIGHUP,  (GSourceFunc)quit_cb, NULL);
-    g_unix_signal_add (SIGTERM, (GSourceFunc)quit_cb, NULL);
-    /* Signal SIGSTOP and SIGKILL cant be catched! Below code will cause exception! */
-    /* g_unix_signal_add (SIGSTOP, quit_cb, NULL); */
-    return;
+    signal(SIGINT,  quit_cb);
+    signal(SIGHUP,  quit_cb);
+    signal(SIGTERM, quit_cb);
+
+    return RET_OK;
 }
 
 gint
@@ -677,7 +672,7 @@ fibo_adapter_send_message_async(void                   *message,
     char                     atport[GREP_MBIM_PORT_CMD_LEN]       =  {0};
 
     if (!message || !len || !timeout || !callback || !userdata) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
@@ -699,7 +694,7 @@ fibo_adapter_send_message_async(void                   *message,
     }
 
     if (retry < 0) {
-        FIBO_LOG_CRITICAL("Reach max retry, mbim device not ready!\n");
+        FIBO_LOG_ERROR("Reach max retry, mbim device not ready!\n");
         return RET_ERR_RESOURCE;
     }
 #endif
@@ -710,7 +705,7 @@ fibo_adapter_send_message_async(void                   *message,
 
     req_str = malloc(malloc_size);
     if (!req_str) {
-        FIBO_LOG_CRITICAL("malloc space failed!\n");
+        FIBO_LOG_ERROR("malloc space failed!\n");
         return RET_ERR_RESOURCE;
     }
     memset(req_str, 0, malloc_size);
@@ -733,20 +728,20 @@ fibo_adapter_send_message_async(void                   *message,
     ret = fibo_adapter_check_cellular(&res);
     if (ret != RET_OK || res != RET_OK)
     {
-        FIBO_LOG_CRITICAL("Helper cant recognize cellular!\n");
+        FIBO_LOG_ERROR("Helper cant recognize cellular!\n");
         return RET_ERR_RESOURCE;
     }
 
     fibo_adapter_get_work_cellular_info(&work_cellular_info);
 
-    FIBO_LOG_CRITICAL("Found %s exist!\n", work_cellular_info.work_module_name);
+    FIBO_LOG_ERROR("Found %s exist!\n", work_cellular_info.work_module_name);
 
     fibo_adapter_get_supported_module_info(&module_info, work_cellular_info.module_info_index);
 
     FIBO_LOG_DEBUG("device AT port:%s\n", module_info.atportname);
 
     if (module_info.atportname == NULL || strlen(module_info.atportname) < 1) {
-        FIBO_LOG_CRITICAL("Invalid atport name, dont init!\n");
+        FIBO_LOG_ERROR("Invalid atport name, dont init!\n");
         return RET_ERR_RESOURCE;
     }
 
@@ -755,7 +750,7 @@ fibo_adapter_send_message_async(void                   *message,
     // execute command.
     fp = popen(command, RDONLY);
     if (fp == NULL) {
-        FIBO_LOG_CRITICAL("execute command failed!\n");
+        FIBO_LOG_ERROR("execute command failed!\n");
         return RET_ERROR;
     }
 
@@ -765,7 +760,7 @@ fibo_adapter_send_message_async(void                   *message,
     // check command's execute result.
     ret = pclose(fp);
     if (ret != RET_OK || strlen(commandrsp) == 0) {
-        FIBO_LOG_CRITICAL("cant find atport!\n");
+        FIBO_LOG_ERROR("cant find atport!\n");
         return RET_ERROR;
     }
 /*
@@ -775,12 +770,13 @@ fibo_adapter_send_message_async(void                   *message,
 */
     memset(atport, 0, sizeof(atport));
 
-    // commandrsp will end with 0x0A, cause string contains invalid symbol, so here will cut 1.
+    // portname will begin with /dev/ttyUSB*, skip "/dev/", 5 offset.
+    // commandrsp will end with 0x0A, cause string contains invalid symbol, so here will more cut 1.
     strncpy(atport, commandrsp + 5, (int)strlen(commandrsp) - 6);
 
     rcv_data = malloc(2048);
     if (!rcv_data) {
-        FIBO_LOG_CRITICAL("malloc space failed!\n");
+        FIBO_LOG_ERROR("malloc space failed!\n");
         if (userdata) {
             free(userdata);
             userdata = NULL;
@@ -794,7 +790,7 @@ fibo_adapter_send_message_async(void                   *message,
     // send AT command to module.
     ret = fibo_adapter_send_at_command(req_str, rcv_data, atport);
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("Send command failed, error:%d\n", ret);
+        FIBO_LOG_ERROR("Send command failed, error:%d\n", ret);
         if (rcv_data) {
             free(rcv_data);
             rcv_data = NULL;
@@ -824,7 +820,7 @@ fibo_adapter_send_message_async(void                   *message,
 
         user_data = (fibo_async_struct_type *) malloc(sizeof(fibo_async_struct_type) + payloadlen + 1);
         if (user_data == NULL) {
-            FIBO_LOG_CRITICAL("malloc failed!\n");
+            FIBO_LOG_ERROR("malloc failed!\n");
             return RET_ERROR;
         }
 
@@ -881,19 +877,19 @@ fibo_adapter_udev_init(gint cellular_type, gint *output_fd)
     }
 
     if (cellular_type > CELLULAR_TYPE_MAX || cellular_type < CELLULAR_TYPE_MIN) {
-        FIBO_LOG_CRITICAL("Invalid param, refuse to init!\n");
+        FIBO_LOG_ERROR("Invalid param, refuse to init!\n");
         return RET_ERROR;
     }
 
     udev = udev_new();
     if(!udev) {
-        FIBO_LOG_CRITICAL("Failed to initialize libudev.\n");
+        FIBO_LOG_ERROR("Failed to initialize libudev.\n");
         return RET_ERROR;
     }
 
     monitor = udev_monitor_new_from_netlink(udev, "udev");
     if (!monitor) {
-        FIBO_LOG_CRITICAL("Failed to create udev monitor.\n");
+        FIBO_LOG_ERROR("Failed to create udev monitor.\n");
         udev_unref(udev);
         return RET_ERROR;
     }
@@ -938,33 +934,32 @@ fibo_adapter_check_cellular(gint *check_result)
 
     if (check_result == NULL)
     {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
-    *check_result = RET_ERROR;
 
-    fibo_adapter_get_work_cellular_info(&cellular_info);
+    *check_result = RET_ERROR;
+    memset(&cellular_info, 0, sizeof(fibocom_cellular_type));
 
     command_rsp = malloc(AT_COMMAND_LEN * sizeof(char));
     if (!command_rsp) {
-        FIBO_LOG_CRITICAL("malloc command_rsp failed!\n");
+        FIBO_LOG_ERROR("malloc command_rsp failed!\n");
         return RET_ERROR;
     }
     memset(command_rsp, 0, AT_COMMAND_LEN * sizeof(char));
 
+    module_info = malloc(sizeof(Fibocom_module_info_type));
+    if (!module_info) {
+        FIBO_LOG_ERROR("malloc module_info failed!\n");
+        free(command_rsp);
+        return RET_ERROR;
+    }
+
+
+    fibo_adapter_get_work_cellular_info(&cellular_info);
     max_len = fibo_adapter_get_supported_module_number();
 
     for (i = 0; i < max_len; i++) {
-
-        if (!module_info) {
-            module_info = malloc(sizeof(Fibocom_module_info_type));
-            if (!module_info) {
-                FIBO_LOG_CRITICAL("malloc module_info failed!\n");
-                free(command_rsp);
-                return RET_ERROR;
-            }
-        }
-
         // clear all mid-variables to default value for next use.
         fp = NULL;
         memset(module_info, 0, sizeof(Fibocom_module_info_type));
@@ -972,7 +967,7 @@ fibo_adapter_check_cellular(gint *check_result)
 
         ret = fibo_adapter_get_supported_module_info(module_info, i);
         if (ret != RET_OK) {
-            FIBO_LOG_CRITICAL("fibo_get_supported_module_info failed!\n");
+            FIBO_LOG_ERROR("fibo_get_supported_module_info failed!\n");
             free(module_info);
             free(command_rsp);
             return RET_ERROR;
@@ -989,7 +984,7 @@ fibo_adapter_check_cellular(gint *check_result)
         // execute command.
         fp = popen(command, RDONLY);
         if (fp == NULL) {
-            FIBO_LOG_CRITICAL("execute command failed!\n");
+            FIBO_LOG_ERROR("execute command failed!\n");
             continue;
         }
 
@@ -1018,34 +1013,30 @@ fibo_adapter_check_cellular(gint *check_result)
             cellular_info.cellular_type     = (cellular_type_enum_type)module_info->module_type;
             sprintf(cellular_info.work_module_name, "%s", module_info->module_name);
             cellular_info.module_info_index = i;
-            sprintf(cellular_info.path, "default");
-        }
 
-        break;
+            *check_result = RET_OK;
+        }
     }
 
     free(command_rsp);
-
-    *check_result = RET_OK;
+    free(module_info);
 
     // if func found valid cellular more than 1, will return error.
     if (matched_devices > 1 || matched_devices == 0) {
-        cellular_info.cellular_state  = CELLULAR_STATE_UNKNOWN;
         *check_result = RET_ERROR;
-        sprintf(cellular_info.path, "%s", "ERROR");
-    }
 
-    if (matched_devices == 0) {
-        cellular_info.cellular_state = CELLULAR_STATE_MISSING;
-        FIBO_LOG_DEBUG("Dont find any supported cellular!\n");
+        if (matched_devices > 1) {
+            cellular_info.cellular_state  = CELLULAR_STATE_UNKNOWN;
+            FIBO_LOG_ERROR("Found more than 1 cellulars!\n");
+            return RET_ERROR;
+        }
+        else{
+            cellular_info.cellular_state = CELLULAR_STATE_MISSING;
+            FIBO_LOG_DEBUG("Dont find any supported cellular!\n");
+        }
     }
 
     fibo_adapter_set_work_cellular_info(&cellular_info);
-
-    if (matched_devices > 1) {
-        FIBO_LOG_CRITICAL("Found more than 1 cellulars!\n");
-        return RET_ERROR;
-    }
 
     FIBO_LOG_DEBUG("finished!\n");
 
@@ -1095,7 +1086,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
     }
 
     if (mbimportname == NULL) {
-        FIBO_LOG_CRITICAL("NULL pointer! refuse to init!\n");
+        FIBO_LOG_ERROR("NULL pointer! refuse to init!\n");
         return;
     }
 /*
@@ -1111,7 +1102,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
 */
 
     if (mbimportname == NULL || strlen(mbimportname) < 1) {
-        FIBO_LOG_CRITICAL("Invalid mbimport name, dont init!\n");
+        FIBO_LOG_ERROR("Invalid mbimport name, dont init!\n");
         return;
     }
 
@@ -1120,7 +1111,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
     // execute command.
     fp = popen(command, RDONLY);
     if (fp == NULL) {
-        FIBO_LOG_CRITICAL("execute command failed!\n");
+        FIBO_LOG_ERROR("execute command failed!\n");
         return;
     }
 
@@ -1130,7 +1121,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
     // check command's execute result.
     ret = pclose(fp);
     if (ret != RET_OK || strlen(commandrsp) == 0) {
-        FIBO_LOG_CRITICAL("cant find mbimport!\n");
+        FIBO_LOG_ERROR("cant find mbimport!\n");
         return;
     }
 /*
@@ -1144,7 +1135,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
     file = g_file_new_for_path(mbimport);
     if (!file)
     {
-        FIBO_LOG_CRITICAL("GFile new failed!\n");
+        FIBO_LOG_ERROR("GFile new failed!\n");
         // if not root user to run, here will report privillages error.
         return;
     }
@@ -1166,11 +1157,11 @@ fibo_adapter_control_mbim_init(void)
 
     fibo_adapter_get_work_cellular_info(&work_cellular_info);
 
-    FIBO_LOG_CRITICAL("Found cellular %s added!\n", work_cellular_info.work_module_name);
+    FIBO_LOG_ERROR("Found cellular %s added!\n", work_cellular_info.work_module_name);
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
     else
-        FIBO_LOG_CRITICAL("variable is NULL, dont send cellular info signal!\n");
+        FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
     fibo_adapter_get_supported_module_info(&module_info, work_cellular_info.module_info_index);
 
@@ -1203,7 +1194,7 @@ fibo_adapter_device_Check(void)
 
     ret = fibo_adapter_udev_init(work_cellular_info.cellular_type, &fd);
     if (ret == RET_ERROR) {
-        FIBO_LOG_CRITICAL("Fatal error! exit main thread!\n");
+        FIBO_LOG_ERROR("Fatal error! exit main thread!\n");
         return;
     }
 
@@ -1240,7 +1231,7 @@ fibo_adapter_device_Check(void)
             ret = fibo_adapter_check_cellular(&res);
             if (ret != RET_OK || res != RET_OK)
             {
-                FIBO_LOG_CRITICAL("Helper cant recognize cellular!\n");
+                FIBO_LOG_ERROR("Helper cant recognize cellular!\n");
                 udev_device_unref(device);
                 continue;
             }
@@ -1259,11 +1250,11 @@ fibo_adapter_device_Check(void)
             }
             fibo_adapter_get_work_cellular_info(&work_cellular_info);
 
-            FIBO_LOG_CRITICAL("Found cellular %s removed!\n", work_cellular_info.work_module_name);
+            FIBO_LOG_ERROR("Found cellular %s removed!\n", work_cellular_info.work_module_name);
             if (g_skeleton != NULL)
                 fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular missing!");
             else
-                FIBO_LOG_CRITICAL("variable is NULL, dont send cellular info signal!\n");
+                FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
             fibo_adapter_send_control_message_to_mbim(CTL_MBIM_DEINIT, 0, NULL);
             udev_device_unref(device);
@@ -1368,11 +1359,11 @@ fibo_adapter_get_control_req_from_dbus(void *msgs)
 gint
 fibo_adapter_send_resp_to_dbus(void *msgs, int msgsize)
 {
-    int     output_seq_id;
-    int     ret = RET_OK;
+    int     output_seq_id = RET_ERROR;
+    int     ret           = RET_OK;
 
     if (!msgs || msgsize < 0) {
-        FIBO_LOG_CRITICAL("NULL pointer!");
+        FIBO_LOG_ERROR("NULL pointer!");
         return RET_ERROR;
     }
 
@@ -1380,7 +1371,7 @@ fibo_adapter_send_resp_to_dbus(void *msgs, int msgsize)
 
     ret = msgsnd(output_seq_id, (void *)msgs, msgsize, 0);
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("ret = %d\n", ret);
+        FIBO_LOG_ERROR("ret = %d\n", ret);
         return RET_ERROR;
     }
     return RET_OK;
@@ -1432,10 +1423,9 @@ fibo_adapter_send_control_req_to_mbim(void *msgs, int msgsize)
 {
     int     input_seq_id     = RET_ERROR;
     int     ret              = RET_OK;
-    GThread *recovery_thread = NULL;
 
     if (!msgs || msgsize < 0) {
-        FIBO_LOG_CRITICAL("NULL pointer!\n");
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
@@ -1470,7 +1460,7 @@ fibo_adapter_get_helper_seq_id(int seq)
 
     if (ipc_key == RET_ERROR)
     {
-        FIBO_LOG_CRITICAL("can't alloc key!\n");
+        FIBO_LOG_ERROR("can't alloc key!\n");
         return RET_ERROR;
     }
     else
@@ -1486,7 +1476,7 @@ fibo_adapter_get_helper_seq_id(int seq)
 }
 
 int
-fibo_adapter_helper_sequence_init(void)
+fibo_adapter_helper_queue_init(void)
 {
     key_t ipc_key;
     int   ret = RET_ERROR;
@@ -1496,7 +1486,7 @@ fibo_adapter_helper_sequence_init(void)
         ipc_key = ftok("/etc/dbus-1/system.d/com.fibocom.helper.conf", i);  // calculate individual message id.
         if (ipc_key == RET_ERROR)
         {
-            FIBO_LOG_CRITICAL("can't alloc sequence id!\n");
+            FIBO_LOG_ERROR("can't alloc queue id!\n");
             return RET_ERROR;
         }
 

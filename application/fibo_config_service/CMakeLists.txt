@@ -29,7 +29,6 @@ endif(NOT GDBUSCODEGEN)
 add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
 	COMMAND ${GDBUSCODEGEN}  --generate-c-code=fibocom-helper-gdbus-generated --c-namespace=FibocomGdbus --interface-prefix com.fibocom. ${CMAKE_SOURCE_DIR}/application/dbus/introspection/com.fibocom.helper.xml
 	COMMAND mkdir -p generated/
-	COMMAND mv fibocom-helper-gdbus-generated.h ${CMAKE_SOURCE_DIR}/application/include/common/
 	COMMAND mv fibocom-helper-gdbus-generated.c generated/
 	)
 
@@ -50,14 +49,11 @@ add_definitions(${CONFIG_PREPROCESSOR_DEF})
 # Fibocom linux config service binary configuration
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
-include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../libs/iniparser/)
-#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs/libxml2-v2.11.5/)
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs)
 
 include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs/dbus)
 include_directories(${PROJECT_BINARY_DIR}/)
+include_directories(${PROJECT_BINARY_DIR}/../iniparser)
 
 include_directories(/usr/include/dbus-1.0
                     /usr/lib/x86_64-linux-gnu/dbus-1.0/include
@@ -74,8 +70,7 @@ set(source_files generated/fibocom-helper-gdbus-generated.c)
 
 add_executable(fibo_config ${DIR_SRCS} ${source_files})
 
-target_link_libraries(fibo_config ${CMAKE_CURRENT_SOURCE_DIR}/../libs/iniparser/libiniparser.a)
-#target_link_libraries(fibo_config ${CMAKE_CURRENT_SOURCE_DIR}/../libs/libxml2-v2.11.5/libxml2.so -ldl -lpthread -lm)
-#target_link_libraries(fibo_config   dbus-1 udev gio-2.0 gobject-2.0 glib-2.0 PkgConfig::deps ${CMAKE_DL_LIBS})
-target_link_libraries(fibo_config  /usr/lib/x86_64-linux-gnu/libxml2.so dbus-1 udev gio-2.0 gobject-2.0 glib-2.0 -ldl -lpthread -lm PkgConfig::deps ${CMAKE_DL_LIBS})
+target_link_libraries(fibo_config ${PROJECT_BINARY_DIR}/../iniparser/libiniparser.a)
+target_link_libraries(fibo_config  /usr/lib/x86_64-linux-gnu/libxml2.so dbus-1 udev 
+               gio-2.0 gobject-2.0 glib-2.0 -ldl -lpthread -lm PkgConfig::deps ${CMAKE_DL_LIBS})
 
