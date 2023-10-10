@@ -16,7 +16,7 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
 
 ## 1. Install
 
-- sudo apt install camke<br>
+- sudo apt install cmake<br>
 - sudo apt install build-essential<br>
 - sudo apt install -y pkg-config<br>
 - sudo apt install libglib2.0-dev<br>
