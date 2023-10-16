@@ -32,6 +32,8 @@
 #define AT_COMMAND_LEN                   256
 #endif
 
+#define HELPER_VERSION_STRING            "1.0.3"
+
 // #define MBIM_FUNCTION_SUPPORTED
 
 typedef enum
@@ -65,6 +67,13 @@ typedef enum
     CTL_MBIM_DEINIT        = 0x0002,
     CTL_MBIM_END           = 0x0003,
     CTL_MBIM_NO_RESP,
+
+    CTL_MBIM_SUBSCRIBER_READY_QUERY = 0x0010,
+    CTL_MBIM_SUBSCRIBER_READY_IND,
+    CTL_MBIM_HOME_PROVIDER_QUERY,
+    CTL_MBIM_HOME_PROVIDER_IND,
+    CTL_MBIM_REGISTER_STATE_QUERY,
+    CTL_MBIM_REGISTER_STATE_IND,
 
     /* 0x0001 -0x0FFF is reserved for common cid */
     RESET_MODEM_SW         = 0x0100,

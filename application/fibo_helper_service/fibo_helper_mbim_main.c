@@ -24,7 +24,6 @@
 #include "fibo_helper_basic_func.h"
 
 GMainLoop   *gMainLoop            = NULL;
-gboolean    g_table_check_flag    = FALSE;
 
 static gint
 fibo_helper_control_receiver_init()

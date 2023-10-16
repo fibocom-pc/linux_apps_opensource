@@ -204,38 +204,39 @@ endif()
 
 # Install targets
 set(PUBLIC_HEADERS
-  include/safe_lib_errno.h
-  include/safe_lib.h
-  include/safe_mem_lib.h
-  include/safe_str_lib.h
-  include/safe_types.h
-  include/snprintf_s.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/safe_lib_errno.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/safe_lib.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/safe_mem_lib.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/safe_str_lib.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/safe_types.h
+${CMAKE_CURRENT_SOURCE_DIR}/include/snprintf_s.h
 )
+execute_process(COMMAND cp -raf /${PUBLIC_HEADERS} ${PROJECT_BINARY_DIR})
 
-set_target_properties(${PROJECT_NAME}_shared PROPERTIES
-  PUBLIC_HEADER "${PUBLIC_HEADERS}"
-)
+# set_target_properties(${PROJECT_NAME}_shared PROPERTIES
+#   PUBLIC_HEADER "${PUBLIC_HEADERS}"
+# )
 
-install(TARGETS ${PROJECT_NAME}_shared EXPORT ${PROJECT_NAME}Config
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# install(TARGETS ${PROJECT_NAME}_shared EXPORT ${PROJECT_NAME}Config
+#   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# )
 
-install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
+# install(EXPORT ${PROJECT_NAME}Config DESTINATION share/${PROJECT_NAME}/cmake)
 
-export(TARGETS ${PROJECT_NAME}_shared FILE ${PROJECT_NAME}Config.cmake)
+# export(TARGETS ${PROJECT_NAME}_shared FILE ${PROJECT_NAME}Config.cmake)
 
-# Debian package information for CPack
-set(CPACK_GENERATOR "DEB")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Intel")
-set(CPACK_PACKAGE_VERSION_MAJOR "${SAFEC_VERSION_MAJOR}")
-set(CPACK_PACKAGE_VERSION_MINOR "${SAFEC_VERSION_MINOR}")
-set(CPACK_PACKAGE_VERSION_PATCH "${SAFEC_VERSION_PATCH}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "SafeStringLib is an Intel enhanced version of the Safe C Library by Cisco.")
-set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-set(CPACK_DEBIAN_PACKAGE_NAME "lib${PROJECT_NAME}")
-set(CPACK_DISPLAY_NAME "lib${PROJECT_NAME} run-time library")
-set(CPACK_PACKAGE_NAME "lib${PROJECT_NAME}")
-set(CPACK_DESCRIPTION "Safe String library and header files.")
-include(GNUInstallDirs)
-include(CPack)
+# # Debian package information for CPack
+# set(CPACK_GENERATOR "DEB")
+# set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Intel")
+# set(CPACK_PACKAGE_VERSION_MAJOR "${SAFEC_VERSION_MAJOR}")
+# set(CPACK_PACKAGE_VERSION_MINOR "${SAFEC_VERSION_MINOR}")
+# set(CPACK_PACKAGE_VERSION_PATCH "${SAFEC_VERSION_PATCH}")
+# set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "SafeStringLib is an Intel enhanced version of the Safe C Library by Cisco.")
+# set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+# set(CPACK_DEBIAN_PACKAGE_NAME "lib${PROJECT_NAME}")
+# set(CPACK_DISPLAY_NAME "lib${PROJECT_NAME} run-time library")
+# set(CPACK_PACKAGE_NAME "lib${PROJECT_NAME}")
+# set(CPACK_DESCRIPTION "Safe String library and header files.")
+# include(GNUInstallDirs)
+# include(CPack)

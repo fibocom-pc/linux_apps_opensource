@@ -22,7 +22,7 @@ find_package(LibXml2 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0 gio-unix-2.0)
 
-execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/FwUpdate.ini ./application/fibo_flash_service)
+execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/FwUpdate.ini ${PROJECT_BINARY_DIR})
 
 set(FLASH_MAJOR_VERSION 1)
 set(FLASH_MINOR_VERSION 0)
@@ -49,7 +49,7 @@ add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
 include_directories(${PROJECT_BINARY_DIR}/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
-include_directories(${PROJECT_BINARY_DIR}/../safestringlib)
+include_directories(${PROJECT_BINARY_DIR}/../3rd/safestringlib)
 
 set(source_files
     fibo_flash_main.c fibo_flash_parse_xml.c generated/fibocom-helper-gdbus-generated.c)
@@ -57,7 +57,7 @@ set(source_files
 add_executable(fibo_flash
     ${source_files})
 
-target_link_libraries(fibo_flash ${PROJECT_BINARY_DIR}/../safestringlib/libsafestring_static.a)
+target_link_libraries(fibo_flash ${PROJECT_BINARY_DIR}/../3rd/safestringlib/libsafestring_static.a)
 
 target_link_libraries(fibo_flash
     PkgConfig::deps

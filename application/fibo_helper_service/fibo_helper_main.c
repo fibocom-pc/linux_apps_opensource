@@ -1,4 +1,4 @@
-/**
+ /**
  * Copyright (C) 2023 Fibocom Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -25,29 +25,6 @@
 
 
 GMainLoop   *gMainLoop            = NULL;
-gboolean    g_table_check_flag    = FALSE;
-
-static gint
-check_global_tables(void)
-{
-    gboolean check_flag     =  FALSE;
-
-    check_flag = fibo_check_supported_request_table();
-    if (!check_flag) {
-        FIBO_LOG_ERROR ("fibo_check_supported_request_table failed!\n");
-        return RET_ERROR;
-    }
-
-    check_flag = fibo_check_module_info_table();
-    if (!check_flag) {
-        FIBO_LOG_ERROR ("fibo_check_module_info_table failed!\n");
-        return RET_ERROR;
-    }
-
-    FIBO_LOG_DEBUG ("finished!\n");
-    g_table_check_flag = TRUE;
-    return RET_OK;
-}
 
 static gint
 fibo_helper_control_receiver_init()
@@ -88,10 +65,17 @@ fibo_helper_device_check_thread_init()
 /* main func cant be blocked at any time! */
 gint main(gint argc, char const *argv[])
 {
-    guint   owner_id   = RET_OK;
     gint    ret        = RET_ERROR;
 
     FIBO_LOG_OPEN ("helper");
+    FIBO_LOG_INFO("fibo_helper_service version:%s", HELPER_VERSION_STRING);
+
+    // cause other service will call helper to execute command, here must register it to dbus firstly.
+    ret = fibo_register_helper_service();
+    if (ret != RET_OK) {
+        FIBO_LOG_CRITICAL("fibo_register_helper_service failed! exit mainloop!\n");
+        return ret;
+    }
 
     ret = fibo_mutex_init();
     if (ret != RET_OK) {
@@ -118,21 +102,15 @@ gint main(gint argc, char const *argv[])
         return ret;
     }
 
-    fibo_helper_device_check_thread_init();
+    ret = fibo_helper_device_check_thread_init();
     if (ret != RET_OK) {
         FIBO_LOG_CRITICAL("fibo_helper_device_check_thread_init failed! exit mainloop!\n");
         return ret;
     }
-    owner_id = fibo_register_helper_service();
-    if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("fibo_register_helper_service failed! exit mainloop!\n");
-        return ret;
-    }
 
-    ret = check_global_tables();
+    ret = fibocom_hwreset_gpio_init();
     if (ret != RET_OK) {
-        FIBO_LOG_CRITICAL("check_global_tables failed! exit mainloop!\n");
-        return ret;
+        FIBO_LOG_CRITICAL("fibocom_hwreset_gpio_init failed!\n");
     }
 
     ret = fibo_helper_mmevent_register();
@@ -141,13 +119,13 @@ gint main(gint argc, char const *argv[])
         return ret;
     }
 
+
+
     // main loop go cycle.
     gMainLoop = g_main_loop_new (NULL, FALSE);
     g_main_loop_run (gMainLoop);
 
     /* Below funcs are used to unregister all dependent variables and exit main func */
-
-    // g_bus_unown_name (owner_id);
 
     fibo_mutex_force_sync_unlock();
 

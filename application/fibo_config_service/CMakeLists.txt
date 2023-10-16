@@ -32,7 +32,7 @@ add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
 	COMMAND mv fibocom-helper-gdbus-generated.c generated/
 	)
 
-execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fbwwanConfig.ini ./application/fibo_config_service)
+execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fbwwanConfig.ini ${PROJECT_BINARY_DIR})
 set(CONFIG_MAJOR_VERSION 1)
 set(CONFIG_MINOR_VERSION 0)
 set(CONFIG_PATCH_VERSION 0)
@@ -53,7 +53,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${PROJECT_BINARY_DIR}/)
-include_directories(${PROJECT_BINARY_DIR}/../iniparser)
+include_directories(${PROJECT_BINARY_DIR}/../3rd/iniparser)
 
 include_directories(/usr/include/dbus-1.0
                     /usr/lib/x86_64-linux-gnu/dbus-1.0/include
@@ -70,7 +70,7 @@ set(source_files generated/fibocom-helper-gdbus-generated.c)
 
 add_executable(fibo_config ${DIR_SRCS} ${source_files})
 
-target_link_libraries(fibo_config ${PROJECT_BINARY_DIR}/../iniparser/libiniparser.a)
+target_link_libraries(fibo_config ${PROJECT_BINARY_DIR}/../3rd/iniparser/libiniparser.a)
 target_link_libraries(fibo_config  /usr/lib/x86_64-linux-gnu/libxml2.so dbus-1 udev 
                gio-2.0 gobject-2.0 glib-2.0 -ldl -lpthread -lm PkgConfig::deps ${CMAKE_DL_LIBS})
 

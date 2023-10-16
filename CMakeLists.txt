@@ -26,3 +26,32 @@ cmake_minimum_required(VERSION 3.6)
 project(fibocom_linux VERSION 1.0.0)
 
 add_subdirectory (application)
+install(CODE "MESSAGE(\"start install script.\")")
+install(CODE "execute_process(COMMAND bash ${PROJECT_SOURCE_DIR}/install)")
+install(CODE "MESSAGE(\"run install script success.\")")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/opt/fibocom" FILE_PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION "/opt")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/udev/rules.d/" DESTINATION "/usr/lib/udev/rules.d")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d/"  
+            FILE_PERMISSIONS    OWNER_EXECUTE OWNER_WRITE OWNER_READ
+                                GROUP_EXECUTE GROUP_READ 
+                                WORLD_EXECUTE WORLD_READ
+            DESTINATION "/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/lib/systemd/system/" DESTINATION "/lib/systemd/system")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/etc/dbus-1/system.d/" DESTINATION "/etc/dbus-1/system.d")
+install(CODE "MESSAGE(\"install success!\")")
+
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME "linux-apps")
+set(CPACK_PACKAGE_VERSION "1.0.3")
+set(CPACK_DEBIAN_FILE_NAME "fibo-apps-${CPACK_PACKAGE_VERSION}.deb")
+set(CPACK_DEBIAN_PACKAGE_GROUP "fibocom")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "WWAN Linux apps")
+set(CPACK_DEBIAN_PACKAGE_SECTION "base")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "standard")
+set(CPACK_PACKAGE_VENDOR "fibocom")
+set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Fibocom")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA 
+    "${PROJECT_BINARY_DIR}/../script/preinst;${PROJECT_BINARY_DIR}/../script/prerm;${PROJECT_BINARY_DIR}/../script/postinst;${PROJECT_BINARY_DIR}/../script/postrm")
+include(CPack)

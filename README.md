@@ -27,16 +27,16 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
 - sudo apt install libmm-glib-dev<br>
 
 ## 2. Build
-./build.sh [operator]<br>
-operator:<br>
-  1. build_all (build service code and create release folder,config file )<br>
-  2. clean_project (clean project remove build and release folder)<br>
-
-
-examples:./build.sh 1  (build service code and create release folder,config file)<br>
-
+1.cmake -S . -B build<br>
+2.cmake --build build<br>
+3.cd build<br>
+4.sudo make install<br>
 
 ## 3. If using systemd, use
+- load config file<br>
+  sudo systemctl daemon-reload
+- enable service<br>
+  sudo systemctl enable fibo_xxx.service<br>
 - start service<br>
 	sudo systemctl start fibo_xxx.service<br>
 - Get status<br>
@@ -47,5 +47,9 @@ examples:./build.sh 1  (build service code and create release folder,config file
 # release history
 - version:1.0.0<br>
   first version, add  flash firmware,recovery  service.<br>
-
+- version:1.0.2<br>
+  1. modify project build script<br>
+  2. optimize helper and flash service source code<br>
+- version:1.0.3<br>
+  modify project build script<br>
 

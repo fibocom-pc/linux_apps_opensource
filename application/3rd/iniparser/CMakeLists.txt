@@ -16,7 +16,16 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-add_subdirectory(3rd)
-add_subdirectory(fibo_helper_service)
-add_subdirectory(fibo_flash_service)
-add_subdirectory(fibo_config_service)
+project(iniparser)
+set(path ${CMAKE_CURRENT_SOURCE_DIR}/src/dictionary.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/iniparser.h)
+execute_process(COMMAND cp -raf ${path}  ${PROJECT_BINARY_DIR})
+
+include_directories (./src DIR_LIB_INCLUDES)
+aux_source_directory(./src DIR_LIB_SRCS)
+
+add_library(iniparser ${DIR_LIB_SRCS})
+
+
+
+    

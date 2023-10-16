@@ -16,7 +16,11 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-add_subdirectory(3rd)
-add_subdirectory(fibo_helper_service)
-add_subdirectory(fibo_flash_service)
-add_subdirectory(fibo_config_service)
+project(3rd)
+
+add_subdirectory(iniparser)
+add_subdirectory(safestringlib)
+add_subdirectory(qdl)
+
+
+    

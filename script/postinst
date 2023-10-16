@@ -1,0 +1,11 @@
+#!/bin/bash
+#add MA Service script, creat link file
+#
+path="/lib/systemd/system/"
+if [[ -f ${path}fibo_config.service   &&  -f ${path}fibo_flash.service  &&   -f ${path}fibo_helper.service &&-f ${path}fibo_helper_mbim.service ]];then
+systemctl enable  fibo_config.service fibo_helper_mbim.service fibo_flash.service fibo_helper.service
+systemctl start  fibo_helper.service fibo_helper_mbim.service fibo_config.service fibo_flash.service
+chown -R root:root  /usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d
+chmod 755 -R /usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d
+fi
+

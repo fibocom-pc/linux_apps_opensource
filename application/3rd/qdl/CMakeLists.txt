@@ -16,7 +16,20 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-add_subdirectory(3rd)
-add_subdirectory(fibo_helper_service)
-add_subdirectory(fibo_flash_service)
-add_subdirectory(fibo_config_service)
+project(qdl)
+find_package(LibXml2 REQUIRED)
+
+include_directories (. DIR_LIB_INCLUDES)
+aux_source_directory(. DIR_LIB_SRCS)
+
+set(qdl_source_files firehose.c qdl.c sahara.c util.c patch.c program.c ufs.c)
+
+set(ks_source_files ks.c sahara.c util.c)
+
+include_directories(/usr/include/libxml2)
+
+add_executable(ks ${ks_source_files})
+add_executable(qdl ${qdl_source_files})
+
+target_link_libraries(qdl LibXml2::LibXml2 udev)
+target_link_libraries(ks LibXml2::LibXml2 udev)

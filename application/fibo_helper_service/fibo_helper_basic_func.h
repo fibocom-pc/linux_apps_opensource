@@ -27,19 +27,10 @@
 #include "libmbim-glib.h"
 #include "fibo_helper_common.h"
 
-typedef enum
-{
-    FUNC_TYPE_MIN,
-    ASYNC_FUNCTION,
-    SYNC_FUNCTION,
-    FUNC_TYPE_MAX
-}e_parser_func_type;
-
 typedef struct
 {
     e_command_cid       cid;
     gint                 (*func_pointer)(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
-    e_parser_func_type  func_type;
     gpointer            callback;
     gchar                *at_amd;
 }fibocom_request_table_type;
@@ -56,8 +47,6 @@ gint     fibo_mutex_init(void);
 void     request_receiver(void);
 gint     fibo_get_supported_module_number(void);
 gint     fibo_get_supported_module_info(void *module_info, gint index);
-gboolean fibo_check_supported_request_table(void);
-gboolean fibo_check_module_info_table(void);
 void     fibo_register_module_event_signal(void);
 void     fibo_helper_device_check(void);
 gint     fibo_helper_mmevent_register(void);
@@ -88,9 +77,10 @@ gint     fibocom_edl_flash_ready(MbimDevice *device, GAsyncResult *res, gpointer
 gpointer fibocom_qdl_flash_command(gpointer payload);
 gpointer edl_flashing_command(void *data);
 
-gpointer fibocom_fastboot_flash_command(gpointer payload);
+gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_flag);
 gpointer fastboot_flashing_command(void *data);
 gint     fibocom_fastboot_flash_ready(MbimDevice *device, GAsyncResult *res, gpointer userdata);
+int fibocom_hwreset_gpio_init(void);
 
 #endif /* _FIBO_HELPER_BASIC_FUNC_H_ */
 

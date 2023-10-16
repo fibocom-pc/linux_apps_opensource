@@ -26,70 +26,69 @@
 
 fibocom_request_table_type supported_request_table[] = {
 
-    {RESET_MODEM_SW,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,   fibo_prase_send_atcmd_ready,    "AT+CFUN=15"},
-    {CTL_MBIM_INIT,            fibo_resp_error_result,       ASYNC_FUNCTION,   NULL,                           ""},
-    {CTL_MBIM_DEINIT,          fibo_resp_error_result,       ASYNC_FUNCTION,   NULL,                           ""},
-    {CTL_MBIM_NO_RESP,         fibo_resp_error_result,       ASYNC_FUNCTION,   NULL,                           ""},
+    {RESET_MODEM_SW,           fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+CFUN=15"},
+    {CTL_MBIM_INIT,            fibo_resp_error_result,         NULL,                           ""},
+    {CTL_MBIM_DEINIT,          fibo_resp_error_result,         NULL,                           ""},
+    {CTL_MBIM_NO_RESP,         fibo_resp_error_result,         NULL,                           ""},
 
     /* FWswitch service command list */
-    {GET_AP_VERSION,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTSAPFWVER?"},
-    {GET_MD_VERSION,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+CGMR"},
-    {GET_OP_VERSION,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTCUSTPACKVER?"},
-    {GET_OEM_VERSION,          fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTCFGELEMVER?"},
-    {GET_DEV_VERSION,          fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTDEVPACKVER?"},
-    {GET_IMEI,                 fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+CGSN"},
-    {GET_MCCMNC,               fibo_resp_error_result,       ASYNC_FUNCTION,  NULL,                           ""},
-    {GET_SUBSYSID,             fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_get_subsysid_ready,     "AT"},
-    {SET_ATTACH_APN,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  NULL,                           ""},
-    {FLASH_FW_FASTBOOT,        fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_fastboot_flash_ready,  "at+syscmd=sys_reboot bootloader"},
+    {GET_AP_VERSION,           fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTSAPFWVER?"},
+    {GET_MD_VERSION,           fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+CGMR"},
+    {GET_OP_VERSION,           fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTCUSTPACKVER?"},
+    {GET_OEM_VERSION,          fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTCFGELEMVER?"},
+    {GET_DEV_VERSION,          fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTDEVPACKVER?"},
+    {GET_IMEI,                 fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+CGSN"},
+    {GET_MCCMNC,               fibo_resp_error_result,         NULL,                           ""},
+    {GET_SUBSYSID,             fibo_prase_send_req_atcmd,      fibocom_get_subsysid_ready,     "AT"},
+    {SET_ATTACH_APN,           fibo_prase_send_req_atcmd,      NULL,                           ""},
+    {FLASH_FW_FASTBOOT,        fibo_prase_send_req_atcmd,      fibocom_fastboot_flash_ready,   "at+syscmd=sys_reboot bootloader"},
 
     /* FWrecovery service command list */
-    //{GET_PORT_STATE,           fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_get_port_command_ready, "AT"},
-    {GET_OEM_ID,               fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTOEMUSBID?"},
-    {RESET_MODEM_HW,           fibo_resp_error_result,       ASYNC_FUNCTION,  NULL,                           ""},
-    {FLASH_FW_EDL,             fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibocom_edl_flash_ready,        "at+syscmd=sys_reboot edl"},
+    {GET_PORT_STATE,           fibo_resp_error_result,         NULL,                           "AT"},
+    {GET_OEM_ID,               fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTOEMUSBID?"},
+    {RESET_MODEM_HW,           fibo_resp_error_result,         NULL,                           ""},
+    {FLASH_FW_EDL,             fibo_prase_send_req_atcmd,      fibocom_edl_flash_ready,        "at+syscmd=sys_reboot edl"},
 
     /* MA service command list */
-    {GET_FCCLOCK_STATUS,       fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFCCEFFSTATUS?"},
-    {GET_MODEM_RANDOM_KEY,     fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKGEN"},
-    {SET_FCC_UNLOCK,           fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKVER="},
+    {GET_FCCLOCK_STATUS,       fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFCCEFFSTATUS?"},
+    {GET_MODEM_RANDOM_KEY,     fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKGEN"},
+    {SET_FCC_UNLOCK,           fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKVER="},
 
     /* config service command list */
-    {SET_BODYSAR_ENABLE,       fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSAREN="},
-    {GET_BODYSAR_STATUS,       fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSAREN?"},
-    {GET_BODYSAR_CTRL_MODE,    fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSARMODE?"},
-    {SET_BODYSAR_CTRL_MODE,    fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSARMODE="},
-    {SET_BODYSAR_INDEX,        fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSARON=1,"},
-    {SET_BODYSAR_CFG_DATA,     fibo_resp_error_result,       ASYNC_FUNCTION,  NULL,                           "AT+BODYSARCFG="},
-    {SET_BODYSAR_VER,          fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSARVER="},
-    {GET_BODYSAR_VER,          fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+BODYSARVER?"},
-    {SET_ANTENNA_ENABLE,       fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTTUNINGEN="},
-    {GET_ANTENNA_STATUS,       fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTTUNINGEN?"},
-    {SET_ANTENNA_CTRL_MODE,    fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTCTRLMODE="},
-    {GET_ANTENNA_CTRL_MODE,    fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTCTRLMODE?"},
-    {SET_ANTENNA_WORK_MODE,    fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTTUNEMODE="},
-    {GET_ANTENNA_WORK_MODE,    fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTTUNEMODE?"},
-    {SET_ANTENNA_VER,          fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTVER="},
-    {GET_ANTENNA_VER,          fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTVER?"},
-    {SET_ANTENNA_INDEX,        fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTANTPROFILE="},
-    {SET_FCCLOCK_ENABLE,       fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKMODE="},
-    {GET_NET_WORK_TYPE,        fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    ""},
-    {SET_WDISABLE_ENABLE,      fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFMODE="},
-    {GET_WDISABLE_STATUS,      fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTFMODE?"},
-    {SET_GNSS_ENABLE,          fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTGPSPOWER="},
-    {GET_GNSS_STATUS,          fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTGPSPOWER?"},
-    {GET_DISABLE_ESIM_STATUS,  fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTESIMCFG?"},
-    {SET_DISABLE_ESIM,         fibo_prase_send_set_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "AT+GTESIMCFG="},
-    {GET_FW_INFO,              fibo_prase_send_req_atcmd,    ASYNC_FUNCTION,  fibo_prase_send_atcmd_ready,    "ATI7"},
+    {SET_BODYSAR_ENABLE,       fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSAREN="},
+    {GET_BODYSAR_STATUS,       fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSAREN?"},
+    {GET_BODYSAR_CTRL_MODE,    fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSARMODE?"},
+    {SET_BODYSAR_CTRL_MODE,    fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSARMODE="},
+    {SET_BODYSAR_INDEX,        fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSARON=1,"},
+    {SET_BODYSAR_CFG_DATA,     fibo_resp_error_result,         NULL,                           "AT+BODYSARCFG="},
+    {SET_BODYSAR_VER,          fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSARVER="},
+    {GET_BODYSAR_VER,          fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+BODYSARVER?"},
+    {SET_ANTENNA_ENABLE,       fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTTUNINGEN="},
+    {GET_ANTENNA_STATUS,       fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTTUNINGEN?"},
+    {SET_ANTENNA_CTRL_MODE,    fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTCTRLMODE="},
+    {GET_ANTENNA_CTRL_MODE,    fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTCTRLMODE?"},
+    {SET_ANTENNA_WORK_MODE,    fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTTUNEMODE="},
+    {GET_ANTENNA_WORK_MODE,    fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTTUNEMODE?"},
+    {SET_ANTENNA_VER,          fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTVER="},
+    {GET_ANTENNA_VER,          fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTVER?"},
+    {SET_ANTENNA_INDEX,        fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTANTPROFILE="},
+    {SET_FCCLOCK_ENABLE,       fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFCCLOCKMODE="},
+    {GET_NET_WORK_TYPE,        fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    ""},
+    {SET_WDISABLE_ENABLE,      fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFMODE="},
+    {GET_WDISABLE_STATUS,      fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTFMODE?"},
+    {SET_GNSS_ENABLE,          fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTGPSPOWER="},
+    {GET_GNSS_STATUS,          fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTGPSPOWER?"},
+    {GET_DISABLE_ESIM_STATUS,  fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTESIMCFG?"},
+    {SET_DISABLE_ESIM,         fibo_prase_send_set_atcmd,      fibo_prase_send_atcmd_ready,    "AT+GTESIMCFG="},
+    {GET_FW_INFO,              fibo_prase_send_req_atcmd,      fibo_prase_send_atcmd_ready,    "ATI7"},
     /* config service list is not finished. */
 
-    {ENUM_CID_MAX,             fibo_resp_error_result,       SYNC_FUNCTION,   NULL,                           ""}
+    {ENUM_CID_MAX,             fibo_resp_error_result,         NULL,                           ""}
 };
 
 /* 全局变量 */
 FibocomGdbusHelper     *skeleton           = NULL;
 extern GMainLoop       *gMainLoop;
-extern gboolean        g_table_check_flag;
 gboolean               g_data_updated      = FALSE;
 fibo_async_struct_type *user_data1         = NULL;
 FibocomGdbusHelper     *g_skeleton         = NULL;
@@ -97,6 +96,8 @@ static MMManager       *proxy              = NULL;
 gchar                  g_local_mccmnc[8]   = {0};
 gchar                  g_roam_mccmnc[8]    = {0};
 static gboolean        g_sim_inserted_flag = FALSE;
+
+static int g_hwreset_gpio = 0;
 
 typedef struct {
     char                *moudle;
@@ -113,8 +114,205 @@ Support_Usbvidpid support_usbvidpid[]= {
         {"FM101-GL-00","413c:8215"},
 };
 
+typedef struct {
+    int oemid;
+    char *pidvid;
+    char *skuid;
+    int gpio;
+}Machine_Skuid_Gpio;
+
+Machine_Skuid_Gpio machine_skuid_gpio[] = {
+        {1, "", "0CB2", 717},
+        {1, "", "0CB3", 717},
+        {1, "", "0CB4", 595},
+        {1, "", "0CC1", 371},
+        {1, "", "0CC4", 371},
+        {1, "", "0CC5", 595},
+        {1, "", "CCB5", 717},
+        {1, "", "0CB7", 595},
+        {1, "", "0CB9", 717},
+        {1, "", "0CBA", 717},
+        {1, "", "0CBB", 717},
+        {1, "", "0CBC", 595},
+        {1, "", "0CBD", 371},
+        {1, "", "0CBF", 371},
+        {1, "", "0C99", 647},
+        {1, "", "0C9A", 647},
+        {1, "", "0C97", 596},
+        {1, "", "0C98", 596},
+        {1, "", "0CC0", 0},
+        /*The following are test models*/
+        {1, "", "0C0D", 595},
+        {1, "", "0B03", 595},
+};
 
 /*--------------------------------------Below are Internal Funcs-------------------------------------------------------*/
+
+int fibocom_get_skuid(char *skuid)
+{
+    int ret = 0;
+    FILE *get_skuid_fp = NULL;
+    char get_skuid_cmd[64] = "dmidecode -t 1 | grep SKU | awk -F ' ' '{print$3}'";
+    get_skuid_fp = popen(get_skuid_cmd, "r");
+    if(get_skuid_fp == NULL)
+    {
+        FIBO_LOG_CRITICAL("popen get_skuid_cmd error");
+        return RET_ERROR;
+    }
+
+    ret = fread(skuid, sizeof(char), 32, get_skuid_fp);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("fread get_skuid_cmd error\n");
+        return RET_ERROR;
+    }
+
+    return RET_OK;
+}
+
+
+int fibocom_get_current_mackine_hwreset_gpio(char *skuid, int *gpio)
+{
+    int machine_skuid_gpio_len = sizeof(machine_skuid_gpio) / sizeof(Machine_Skuid_Gpio);
+    int i = 0;
+
+    if (skuid == NULL)
+    {
+        FIBO_LOG_CRITICAL("skuid is null\n");
+        return RET_ERROR;
+    }
+
+
+
+    for (i = 0; i < machine_skuid_gpio_len; ++i)
+    {
+        if(strstr(skuid, machine_skuid_gpio[i].skuid) == NULL)
+        {
+            continue;
+        }
+        else{
+            *gpio = machine_skuid_gpio[i].gpio;
+            FIBO_LOG_DEBUG("find skuid form machine_skuid_gpio\n");
+            break;
+        }
+    }
+
+    if(i == machine_skuid_gpio_len)
+    {
+        FIBO_LOG_DEBUG("don't find skuid form machine_skuid_gpio\n");
+        return RET_ERROR;
+    }
+
+    return RET_OK;
+}
+
+int fibocom_hwreset_gpio_set(int gpio, int type)
+{
+    FILE *set_gpio_fp = NULL;
+    char set_gpio_cmd[64] = {0};
+    int ret = 0;
+
+    if(type == 1 || type == 0) {
+        sprintf(set_gpio_cmd, "echo %d > /sys/class/gpio/gpio%d/value", type, gpio);
+    }
+    else{
+        FIBO_LOG_CRITICAL("invalid type\n");
+        return RET_ERROR;
+    }
+
+    set_gpio_fp = popen(set_gpio_cmd, "r");
+    if(set_gpio_fp == NULL)
+    {
+        FIBO_LOG_CRITICAL("popen ste_gpio_fp error\n");
+        perror("popen ste_gpio_fp error\n");
+        return RET_ERROR;
+    }
+    return RET_OK;
+}
+
+int fibocom_hwreset_gpio_init_sub(int gpio)
+{
+    FILE *gpio_init_fp = NULL;
+    char gpio_init_cmd[64] = {0};
+    int ret = 0;
+
+    sprintf(gpio_init_cmd,"echo %d > /sys/class/gpio/export",gpio);
+    gpio_init_fp = popen(gpio_init_cmd, "w");
+    if(gpio_init_fp == NULL)
+    {
+        FIBO_LOG_CRITICAL("popen gpio_init_fp error\n");
+        perror("popen gpio_init_fp error\n");
+        return RET_ERROR;
+    }
+
+    ret = fibocom_hwreset_gpio_set(gpio, 1);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("set gpio %d error", gpio);
+        return RET_ERROR;
+    }
+
+    sprintf(gpio_init_cmd,"echo out > /sys/class/gpio/gpio%d/direction",gpio);
+    ret = fwrite(gpio_init_cmd,sizeof(char),strlen(gpio_init_cmd) + 1,gpio_init_fp);
+    if(ret == 0)
+    {
+        FIBO_LOG_CRITICAL("fwrite gpio_init_fp error\n");
+        perror("fwrite gpio_init_fp error\n");
+        return RET_ERROR;
+    }
+
+    return RET_OK;
+}
+
+int fibocom_hwreset_gpio_init(void)
+{
+    int ret = 0;
+    char skuid[32] = {0};
+
+    ret = fibocom_get_skuid(skuid);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("Get Skuid error\n");
+        return ret;
+    }
+
+    ret = fibocom_get_current_mackine_hwreset_gpio(skuid, &g_hwreset_gpio);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("Get hwreset gpio error\n");
+        return ret;
+    }
+
+    ret = fibocom_hwreset_gpio_init_sub(g_hwreset_gpio);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("set gpio %d error\n", g_hwreset_gpio);
+        return ret;
+    }
+    return ret;
+}
+
+int fibocom_reset_modem_hw_ready(void)
+{
+    char *skuid = NULL;
+    int ret = 0;
+
+    ret = fibocom_hwreset_gpio_set(g_hwreset_gpio, 0);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("set hwreset gpio %d to 0 error\n", g_hwreset_gpio);
+        return ret;
+    }
+
+    ret = fibocom_hwreset_gpio_set(g_hwreset_gpio, 1);
+    if(ret == RET_ERROR)
+    {
+        FIBO_LOG_CRITICAL("set hwreset gpio %d to 1 error\n", g_hwreset_gpio);
+        return ret;
+    }
+
+    return ret;
+}
 
 static gint
 request_analyzer(fibo_async_struct_type *user_data)
@@ -143,23 +341,18 @@ request_analyzer(fibo_async_struct_type *user_data)
 
     table_len = sizeof(supported_request_table) / sizeof(fibocom_request_table_type);
 
+    // further: add customized tables on different modules, try check commands on its customized tables, if fail, check commands on common tables secondly.
+    // if one module has customized AT command, should add it to customized tables only.
     for (i = 0; i < table_len; i++) {
         if (supported_request_table[i].cid == cid) {
             matched_flag = TRUE;
-            if (supported_request_table[i].func_type == ASYNC_FUNCTION) {
-                ret = supported_request_table[i].func_pointer(serviceid, cid, rtcode, payloadlen, payload_str, supported_request_table[i].callback, supported_request_table[i].at_amd);
-            }
-            else {
-                // sub_thread = g_thread_new ("sync_analyzer", (GThreadFunc)sync_func_analyzer, str);
-                FIBO_LOG_ERROR("Dont support AT over GNSS now!\n");
-            }
+            ret = supported_request_table[i].func_pointer(serviceid, cid, rtcode, payloadlen, payload_str, supported_request_table[i].callback, supported_request_table[i].at_amd);
             break;
         }
     }
 
     if (ret != RET_OK || !matched_flag) {
         FIBO_LOG_ERROR("Execute error or not matched! will call default resp!\n");
-        // supported_request_table[table_len - 1].func_pointer(serviceid, cid, rtcode, payloadlen, payload_str, NULL, NULL);
         fibo_resp_error_result(serviceid, cid, rtcode, payloadlen, payload_str, NULL, NULL);
         return RET_ERROR;
     }
@@ -194,6 +387,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
         FIBO_LOG_ERROR("malloc failed!\n");
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
+        // g_variant_unref(str);
         return RET_ERROR;
     }
 
@@ -223,6 +417,35 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
         if(resp_str) {
             free(resp_str);
         }
+
+        if(user_data) {
+            free(user_data);
+            user_data = NULL;
+        }
+
+        // g_variant_unref(str);
+        return RET_OK;
+    }
+
+    if(user_data->cid == RESET_MODEM_HW)
+    {
+        ret = fibocom_reset_modem_hw_ready();
+        if (ret == RET_ERROR)
+        {
+            memcpy(payload_str,"reset_modem_hw_fail", strlen("reset_modem_hw_fail") + 1);
+            payloadlen = strlen("reset_modem_hw_fail") + 1;
+            user_data->rtcode = 1;
+        }
+        else{
+            memcpy(payload_str,"reset_modem_hw_success", strlen("reset_modem_hw_success") + 1);
+            payloadlen = strlen("reset_modem_hw_success") + 1;
+        }
+        fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), user_data->serviceid, user_data->cid, user_data->rtcode,payloadlen, payload_str);
+        if(user_data) {
+            free(user_data);
+            user_data = NULL;
+        }
+
         return RET_OK;
     }
 
@@ -232,6 +455,12 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
         payloadlen = strlen(payload_str);
         g_print("%s   %d",payload_str,__LINE__);
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), user_data->serviceid, user_data->cid, user_data->rtcode,payloadlen, payload_str);
+        if(user_data) {
+            free(user_data);
+            user_data = NULL;
+        }
+
+        // g_variant_unref(str);
         return RET_OK;
     }
 
@@ -250,22 +479,28 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
             GThread *gthread_edl_flash = NULL;
             gthread_edl_flash = g_thread_new("edl_flash", edl_flashing_command, payload);
             fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, resp_str);
+            if(user_data) {
+                free(user_data);
+                user_data = NULL;
+            }
+
+            // g_variant_unref(str);
             return RET_OK;
         }
     }
-/*
-    if(user_data->cid == FLASH_FW_FASTBOOT)
-    {
-        GThread *gthread_fastboot_monitor = NULL;
-        gthread_fastboot_monitor = g_thread_new("fibo_fastboot_monitor_msg", fibo_fastboot_monitor_msg, NULL);
-    }
-*/
+
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
         FIBO_LOG_ERROR("malloc failed!\n");
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
+        if(user_data) {
+            free(user_data);
+            user_data = NULL;
+        }
+
+        // g_variant_unref(str);
         return RET_ERROR;
     }
     memset(msgs, 0, 2048);
@@ -273,7 +508,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
     memcpy(msgs->mtext, user_data, sizeof(fibo_async_struct_type) + payloadlen);
     msgs->mtype = 1;
 
-    ret = fibo_adapter_send_req_to_mbim(msgs, 2048);
+    ret = fibo_adapter_helperd_send_req_to_helperm(msgs, 2048);
     if (ret != RET_OK) {
 
         FIBO_LOG_ERROR("Send message failed!\n");
@@ -283,6 +518,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
         // if msgsnd func return error, will trigger a default resp func to caller.
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
+        // g_variant_unref(str);
         return RET_ERROR;
     }
 
@@ -291,7 +527,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
     free(user_data);
     user_data = NULL;
 
-    ret = fibo_adapter_get_normal_resp_from_mbim(msgs);
+    ret = fibo_adapter_helperd_get_normal_msg_from_helperm(msgs);
     if (RET_ERROR == ret)
     {
         FIBO_LOG_DEBUG("Get message failed!\n");
@@ -301,6 +537,7 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
         // if msgrcv func return error, will trigger a default resp func to caller.
         rtcode = RET_ERROR;
         fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
+        // g_variant_unref(str);
         return RET_ERROR;
     }
 
@@ -308,13 +545,19 @@ request_transmiter(FibocomGdbusHelper     *skeleton,
 
     FIBO_LOG_DEBUG("len:%d\n", user_data->payloadlen);
 
-    fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), user_data->serviceid, user_data->cid, user_data->rtcode, user_data->payloadlen, user_data->payload_str);
+    if (user_data->cid != cid || user_data->serviceid != serviceid) {
+        FIBO_LOG_ERROR("Get mismatched message, drop it and send error to caller!\n");
+        rtcode = 1;
+    }
+
+    fibo_adapter_send_async_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, user_data->payloadlen, user_data->payload_str);
 
     free(msgs);
     msgs = NULL;
     user_data = NULL;
 
     FIBO_LOG_DEBUG("Helper send resp!\n");
+    // g_variant_unref(str);
     return RET_OK;
 
 }
@@ -394,6 +637,9 @@ static void owner_name_change_notify_cb(GObject *object, GParamSpec *pspec, gpoi
     else
     {
         FIBO_LOG_DEBUG("modemmanager service is disconnect!\n");
+        // further:
+        // 1. if modemmanager missing, free global handle.
+        // 2. if modemmanager existed, re-connect it to modemmananger.
         g_free(pname_owner);
     }
 }
@@ -466,7 +712,8 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     GError      *error       = NULL;
     MMModem     *modem       = NULL;
     const gchar *mccmnc_id   = NULL;
-    MMModem3gpp * modem_3gpp = NULL;
+    MMModem3gpp *modem_3gpp  = NULL;
+    int         ret          = RET_ERROR;
 
     FIBO_LOG_DEBUG("enter!\n");
 
@@ -484,7 +731,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     sim_obj = mm_modem_get_sim_sync(modem, NULL, &error);
     if (NULL == sim_obj)
     {
-        FIBO_LOG_ERROR("Dont find sim card!\n");
+        FIBO_LOG_ERROR("Can't find sim card!\n");
         return;
     }
 
@@ -500,6 +747,8 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
         FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
     // step2: get sim card's mccmnc.
+    // further: use mbim message to get local mccmnc.
+/*
     mccmnc_id = mm_sim_get_operator_identifier(sim_obj);
     if (NULL == mccmnc_id)
     {
@@ -517,6 +766,14 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
             fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "local mccmnc changed!");
         else
             FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+    }
+*/
+
+    // signal callback only send request to control pipe, notice helperm to use mbim message to check local mccmnc, it should not be NULL.
+    // and helperm will send resp to control pipe, helperd should check NULL, update it to global variable and emit a signal to higher service.
+    ret = fibo_adapter_send_control_message_to_mbim(CTL_MBIM_HOME_PROVIDER_QUERY, 0, NULL);
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("send control message failed!\n");
     }
     g_object_unref(sim_obj);
 
@@ -542,6 +799,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     return;
 }
 
+// object remove event will be triggered when either modem removed or SIM card removed.
 static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
 {
     int ret = RET_ERROR;
@@ -549,8 +807,7 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
 
     FIBO_LOG_DEBUG("enter!\n");
 
-    // object remove event will be triggered when either modem removed or SIM card removed.
-    // steo1: check modem state.
+    // check module state firstly, if module exist, then report sim card remove, otherwise will do nothing.
     ret = fibo_adapter_check_cellular(&res);
     if (ret != RET_OK || res != RET_OK) {
         FIBO_LOG_ERROR("Found cellular missing, do nothing cause udev will send cellular state signal!\n");
@@ -568,8 +825,7 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
     fibo_adapter_mutex_sim_insert_flag_operate_unlock();
 
     FIBO_LOG_ERROR("SIM card removed!\n");
-    // check module state firstly, if module exist, then report sim card remove, otherwise will do nothing.
-    // if module power down immediately, SIM card and module will miss at same time, add logic to avoid SIM card remove signal!
+
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "SIM CARD removed!");
     else
@@ -616,7 +872,7 @@ static gboolean emit_fastboot_flash_status_signal(const char* p)
     FIBO_LOG_ERROR("[%s]:flash ====== changed!\n", __func__);
     return FALSE;
 }
-
+/*
 static gpointer
 fibo_fastboot_monitor_msg(void *data)
 {
@@ -635,7 +891,7 @@ fibo_fastboot_monitor_msg(void *data)
 
         fibo_async_struct_type *fastboot_monitor_user_data   = NULL;
 
-        ret = fibo_adapter_get_control_req_from_mbim(fastboot_monitor_msgs);
+        ret = fibo_adapter_helperd_get_control_msg_from_helperm(fastboot_monitor_msgs);
 
         fastboot_monitor_user_data = (fibo_async_struct_type *)fastboot_monitor_msgs->mtext;
 
@@ -658,7 +914,7 @@ fibo_fastboot_monitor_msg(void *data)
         }
     }
 }
-
+*/
 /*--------------------------------------Above are Internal Funcs-------------------------------------------------------*/
 
 /*--------------------------------------Below are External Funcs-------------------------------------------------------*/
@@ -681,7 +937,7 @@ fibo_helper_control_message_receiver(void)
         memset(msgs, 0, 2048);
         user_data = NULL;
 
-        ret = fibo_adapter_get_control_req_from_mbim(msgs);
+        ret = fibo_adapter_helperd_get_control_msg_from_helperm(msgs);
         if (ret != RET_OK) {
             // FIBO_LOG_DEBUG("Get control message failed!\n");
             continue;
@@ -695,9 +951,13 @@ fibo_helper_control_message_receiver(void)
                     FIBO_LOG_DEBUG("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
                     emit_fastboot_flash_status_signal("fastboot flashing...");
                 }
-                else if(strstr(user_data->payload_str, "fastboot flashing ok") != NULL) {
+                else if(strstr(user_data->payload_str, "fastboot flash ok") != NULL) {
                     FIBO_LOG_DEBUG("--------------------------------------------------------------------\n");
-                    emit_fastboot_flash_status_signal("fastboot flashing ok");
+                    emit_fastboot_flash_status_signal("fastboot flash ok");
+                }
+                else if(strstr(user_data->payload_str, "fastboot flash fail") != NULL) {
+                    FIBO_LOG_DEBUG("--------------------------------------------------------------------\n");
+                    emit_fastboot_flash_status_signal("fastboot flash fail");
                 }
                 else
                     FIBO_LOG_ERROR("Invalid payload str!\n");
@@ -710,6 +970,27 @@ fibo_helper_control_message_receiver(void)
                     user_data = NULL;
                 }
                 fibo_adapter_trigger_app_exit();
+                break;
+            case CTL_MBIM_HOME_PROVIDER_IND:
+                // there must be a async function to check HOME PROVIDER.
+                FIBO_LOG_DEBUG("get HOMEPROVIDER resp!\n");
+                if (user_data->payloadlen == 0) {
+                    FIBO_LOG_ERROR("NULL pointer!\n");
+                    continue;
+                }
+
+                if (strcmp(g_local_mccmnc, user_data->payload_str) == 0) {
+                    FIBO_LOG_DEBUG("same mccmnc, abort signal emit process!\n");
+                    continue;
+                }
+
+                FIBO_LOG_DEBUG("local mccmnc changed from %s to %s\n", g_local_mccmnc, user_data->payload_str);
+                strncpy(g_local_mccmnc, user_data->payload_str, user_data->payloadlen);
+
+                if (g_skeleton != NULL)
+                    fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "local mccmnc changed!");
+                else
+                    FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
                 break;
             default:
                 FIBO_LOG_DEBUG("Unsupported control message cid:0x%04x\n", user_data->cid);
@@ -795,39 +1076,6 @@ fibo_get_supported_module_info(void *module_info, int index)
     return RET_OK;
 }
 
-gboolean
-fibo_check_supported_request_table(void)
-{
-    gint     table_len      =  RET_ERROR;
-    gint     i              =  RET_ERROR;
-    gboolean check_flag     =  TRUE;
-
-    table_len = sizeof(supported_request_table) / sizeof(fibocom_request_table_type);
-
-    for (i = 0; i < table_len; i++) {
-        if (supported_request_table[i].cid >= ENUM_CID_MAX)
-            check_flag = FALSE;
-        break;
-        if (supported_request_table[i].func_pointer == NULL)
-            check_flag = FALSE;
-        break;
-        if (supported_request_table[i].func_type >= FUNC_TYPE_MAX)
-            check_flag = FALSE;
-        break;
-        if (supported_request_table[i].func_type == SYNC_FUNCTION && supported_request_table[i].callback != NULL)
-            check_flag = FALSE;
-        break;
-    }
-
-    return check_flag;
-}
-
-gboolean
-fibo_check_module_info_table(void)
-{
-    return fibo_adapter_check_module_info_table();
-}
-
 void fibo_register_module_event_signal(void)
 {
     GError          *connerror  = NULL;
@@ -846,6 +1094,8 @@ void fibo_register_module_event_signal(void)
     // further: module more likely inserted in mechine, so here will check and trigger a module insert event.
     while (TRUE)
     {
+        conn = NULL;
+
         conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &connerror);
 
         if (connerror != NULL || conn == NULL)
@@ -886,6 +1136,8 @@ void fibo_register_module_event_signal(void)
     FIBO_LOG_DEBUG("function exit!\n");
 }
 
+gboolean               device_exist_flag = FALSE;
+
 void
 fibo_helper_device_check(void)
 {
@@ -895,14 +1147,16 @@ fibo_helper_device_check(void)
     gint                   retrycount        = 0;
     GThread                *devcheck_thread  = NULL;
 
+
     while(retry_flag < 3)
     {
         retry_flag++;
+        retrycount = 0;
 
         switch (retry_flag) {
             case 3:
                 FIBO_LOG_ERROR ("reach max retry! drop all remained init process!\n");
-                devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, NULL);
+                devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, (gpointer)&device_exist_flag);
                 if (!devcheck_thread) {
                     FIBO_LOG_ERROR("thread init failed!\n");
                     return;
@@ -915,9 +1169,16 @@ fibo_helper_device_check(void)
                 while (retrycount < 20) {
                     ret = fibo_adapter_check_cellular (&res);
                     if (ret == RET_OK && res == RET_OK) {
+                        device_exist_flag = TRUE;
                         fibo_adapter_control_mbim_init();
+
+                        if (g_skeleton != NULL)
+                            fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
+                        else
+                            FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+
                         // device check is used to monitor all devices' add and remove event through udev.
-                        devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, NULL);
+                        devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, (gpointer)&device_exist_flag);
                         if (!devcheck_thread) {
                             FIBO_LOG_ERROR("thread init failed!\n");
                         }
@@ -925,6 +1186,7 @@ fibo_helper_device_check(void)
                     }
                     FIBO_LOG_ERROR ("dont find valid cellular, will retry!\n");
                     g_usleep (1000 * 1000 * 3);
+                    retrycount++;
                 }
                 break;
             default:
@@ -971,7 +1233,7 @@ fibo_helper_main_receiver(void)
 
         // fibo_adapter_mutex_async_pointer_operate_lock();
 
-	ret = fibo_adapter_get_normal_req_from_dbus(msgs);
+	ret = fibo_adapter_helperm_get_normal_msg_from_helperd(msgs);
 	if (ret != RET_OK) {
 	    // FIBO_LOG_DEBUG("Get message failed, continue anyway!\n");
 	    continue;
@@ -1018,7 +1280,7 @@ void fibo_helper_control_receiver(void)
         memset(mbimportname, 0, FIBOCOM_MODULE_MBIMPORT_LEN);
         user_data = NULL;
 
-        ret = fibo_adapter_get_control_req_from_dbus(msgs);
+        ret = fibo_adapter_helperm_get_control_msg_from_helperd(msgs);
         if (ret == RET_OK) {
             FIBO_LOG_DEBUG("Get control message!\n");
         }
@@ -1043,6 +1305,9 @@ void fibo_helper_control_receiver(void)
                     g_idle_add ((GSourceFunc) g_main_loop_quit, gMainLoop);
                 }
                 break;
+            case CTL_MBIM_HOME_PROVIDER_QUERY:
+                fibo_adapter_helperm_get_local_mccmnc();
+                break;
             default:
                 FIBO_LOG_ERROR("Invalid control cid! refuse to execute!\n");
         }
@@ -1065,7 +1330,10 @@ fibo_register_helper_service(void)
     owner_id = g_bus_own_name (G_BUS_TYPE_SYSTEM, "com.fibocom.helper",
                               G_BUS_NAME_OWNER_FLAGS_NONE,
                               bus_acquired, bus_name_acquired, bus_name_lost, NULL, NULL);
-    return owner_id;
+    if (owner_id < 0)
+        return RET_ERROR;
+    else
+        return RET_OK;
 }
 
 int
@@ -1453,7 +1721,7 @@ int fibo_prase_send_atcmd_ready (MbimDevice   *device,
         return RET_OK;
     }
 
-    if((GET_AP_VERSION == cid) || (GET_OP_VERSION == cid) || (GET_OEM_VERSION == cid) || (GET_DEV_VERSION == cid) || (GET_OP_VERSION == cid)) /*"xxx"*/
+    if((GET_AP_VERSION == cid) || (GET_OP_VERSION == cid) || (GET_OEM_VERSION == cid) || (GET_DEV_VERSION == cid)) /*"xxx"*/
     {
         p = strtok(resp_str,"\"");
         p = strtok(NULL,"\"");
@@ -1780,8 +2048,8 @@ int fibocom_get_port_command_ready (gchar   *resp_str)
     char *p = NULL;
     FILE *get_port_fp = NULL;
     char get_port_cmd[128] = "lsusb | awk -F ' ' 'NR=6 {print $6}'";
-    int count = 1024;
-    char buf[1024]= {0};
+
+    char buf[512]= {0};
     gboolean                            malloc_flag    =  TRUE;
     fibo_async_struct_type              *user_data     =  NULL;
     int ret = 0;
@@ -1948,8 +2216,6 @@ int fibocom_get_subsysid_ready (MbimDevice   *device,
     FILE *get_port_fp = NULL;
     char get_port_cmd[128] = "lsusb | grep Fibocom | awk -F ' ' 'NR=6 {print $6}'";
     char get_qdl_port_cmd[128] = "lsusb | grep \"QDL mode\" | awk -F ' ' 'NR=6 {print $6}'";
-    int count = 1024;
-    char buf[1024]= {0};
 
 #ifdef MBIM_FUNCTION_SUPPORTED
     response = mbim_device_command_finish (device, res, &error);
@@ -2069,7 +2335,7 @@ typedef struct{
     int dev;
     int oem;
     int op;
-}Sub_Pratition_Len;
+}Sub_Partition_Len;
 
 typedef struct {
     int ap;
@@ -2096,9 +2362,9 @@ typedef struct
 {
     char *lable;
     char *filename;
-}fibocom_pratition;
+}fibocom_partition;
 
-fibocom_pratition ap_pratition[] = {
+fibocom_partition ap_partition[] = {
         /*lable            filename*/
         {"aboot","appsboot.mbn"},
         {"boot","sdxnightjar-boot.img"},
@@ -2106,19 +2372,19 @@ fibocom_pratition ap_pratition[] = {
         {"userdata", "sdxnightjar-usrfs.ubi"},
 };
 
-fibocom_pratition sbl_pratition[] = {{"sbl", "sbl1.mbn"}};
+fibocom_partition sbl_partition[] = {{"sbl", "sbl1.mbn"}};
 
-fibocom_pratition modem_pratition[] = {{"modem", "NON-HLOS.ubi"}};
+fibocom_partition modem_partition[] = {{"modem", "NON-HLOS.ubi"}};
 
-fibocom_pratition dev_pratition[] = {
+fibocom_partition dev_partition[] = {
         {"devicepack", "devicepack.ubi"},
 };
 
-fibocom_pratition oem_pratition[] = {
+fibocom_partition oem_partition[] = {
         {"oempack", "oempack.ubi"},
 };
 
-fibocom_pratition op_pratition[] = {{"operatorpack", "operatorpack.ubi"}};
+fibocom_partition op_partition[] = {{"operatorpack", "operatorpack.ubi"}};
 
 char* itoa(int num,char* str,int radix)
 {
@@ -2244,7 +2510,13 @@ void fibo_program_payload_analysis(char * payload,Payload_Analysis *payload_anal
     {
         payload_analysis->dev_ver = strtok(payload_analysis->dev_ver,":");
         payload_analysis->dev_ver = strtok(NULL,";");
-        sprintf(payload_analysis->dev_ver_path,"%s",payload_analysis->dev_ver);
+        if(strstr(payload_analysis->dev_ver,"default"))
+        {
+            sprintf(payload_analysis->dev_ver_path,"%s",payload_analysis->oem_ver_path);
+        }
+        else{
+            sprintf(payload_analysis->dev_ver_path,"%s",payload_analysis->dev_ver);
+        }
         FIBO_LOG_DEBUG("payload_analysis->dev_ver_path = %s %d\n",payload_analysis->dev_ver_path,__LINE__);
     }
     if(partition_flash_flag->oem != 0)
@@ -2266,7 +2538,9 @@ void fibo_program_payload_analysis(char * payload,Payload_Analysis *payload_anal
 int fibocom_get_zenity_environment_variable(char zenity_environment_variable[],int length)
 {
     FILE *get_zenity_environment_variable_fp = NULL;
+    FILE *get_zenity_environment_variable_x11_fp = NULL;
     char get_zenity_environment_variable_cmd[] = "find /run/user -name \".mutter-Xwaylandauth*\" 2>/dev/null | head -1";
+    char get_zenity_environment_variable_x11_cmd[] = "find /run/user/ -name \"Xauthority\" 2>/dev/null | head -1";
     int ret = 0;
 
     get_zenity_environment_variable_fp = popen(get_zenity_environment_variable_cmd,"r");
@@ -2282,10 +2556,25 @@ int fibocom_get_zenity_environment_variable(char zenity_environment_variable[],i
     {
         FIBO_LOG_ERROR("read zenity_environment_variable error\n");
         pclose(get_zenity_environment_variable_fp);
-        return RET_ERROR;
-    }
 
-    pclose(get_zenity_environment_variable_fp);
+        get_zenity_environment_variable_x11_fp = popen(get_zenity_environment_variable_x11_cmd,"r");
+        if(NULL == get_zenity_environment_variable_x11_fp)
+        {
+            perror("get_zenity_environment_variable_x11 error");
+            FIBO_LOG_ERROR("open get_zenity_environment_variable_x11 error\n");
+            return RET_ERROR;
+        }
+        ret = fread(zenity_environment_variable,sizeof(char),length,get_zenity_environment_variable_x11_fp);
+        if(!ret)
+        {
+            FIBO_LOG_ERROR("read zenity_environment_variable_x11 error\n");
+            pclose(get_zenity_environment_variable_x11_fp);
+            return RET_ERROR;
+        }
+        pclose(get_zenity_environment_variable_x11_fp);
+    }else{
+        pclose(get_zenity_environment_variable_fp);
+    }
 
     return RET_OK;
 }
@@ -2295,15 +2584,14 @@ void fibocom_strcat_zenity_environment_variable(char zenity_environment_variable
     sprintf(set_zenity_environment_variable,"export DISPLAY=\":0\"\nexport XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XAUTHORITY=%s\n",zenity_environment_variable);
 }
 
-gpointer fibocom_fastboot_flash_command(gpointer payload) {
-    guint8 bootloader_reboot_str[] = "fastboot reboot\r\n";
-
-    Sub_Pratition_Len sub_pratition_len = {0};
+gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_flag) {
+    Sub_Partition_Len sub_partition_len = {0};
     FILE *fp = NULL;
     int ret = 0;
 
     char command_rsp[256] = {0};
     char command[256] = {0};
+    char buf[256] = {0};
     File_Progress_Class fastboot_flash = {0};
     Partition_Flash_Flag partition_flash_flag = {0};
     Payload_Analysis payload_analysis = {0};
@@ -2346,12 +2634,12 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
     fibo_program_payload_analysis(payload,&payload_analysis,&partition_flash_flag);
 
 
-    sub_pratition_len.ap = sizeof(ap_pratition) / sizeof(fibocom_pratition);
-    sub_pratition_len.sbl = sizeof(sbl_pratition) / sizeof(fibocom_pratition);
-    sub_pratition_len.modem = sizeof(modem_pratition) / sizeof(fibocom_pratition);
-    sub_pratition_len.dev = sizeof(dev_pratition) / sizeof(fibocom_pratition);
-    sub_pratition_len.oem = sizeof(oem_pratition) / sizeof(fibocom_pratition);
-    sub_pratition_len.op = sizeof(op_pratition) /sizeof(fibocom_pratition);
+    sub_partition_len.ap = sizeof(ap_partition) / sizeof(fibocom_partition);
+    sub_partition_len.sbl = sizeof(sbl_partition) / sizeof(fibocom_partition);
+    sub_partition_len.modem = sizeof(modem_partition) / sizeof(fibocom_partition);
+    sub_partition_len.dev = sizeof(dev_partition) / sizeof(fibocom_partition);
+    sub_partition_len.oem = sizeof(oem_partition) / sizeof(fibocom_partition);
+    sub_partition_len.op = sizeof(op_partition) /sizeof(fibocom_partition);
 
     ret = fibocom_get_zenity_environment_variable(zenity_environment_variable,environment_variable_length);
     if(ret != RET_OK)
@@ -2375,24 +2663,24 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
     fastboot_flash.progress_fp = popen(fastboot_flash.progress_command,"w");
     g_usleep(1000*1000*2);
 
-    int flash_pratition_num = 0;
+    int flash_partition_num = 0;
 
     if(partition_flash_flag.ap!= 0)
-        flash_pratition_num += 5;
+        flash_partition_num += 5;
     if(partition_flash_flag.modem!= 0)
-        flash_pratition_num += 1;
+        flash_partition_num += 1;
     if(partition_flash_flag.dev!= 0)
-        flash_pratition_num += 1;
+        flash_partition_num += 1;
     if(partition_flash_flag.oem!= 0)
-        flash_pratition_num += 1;
+        flash_partition_num += 1;
     if(partition_flash_flag.op!= 0)
-        flash_pratition_num += 1;
+        flash_partition_num += 1;
 
-    int flash_pratition_percent = 99 / flash_pratition_num;
-    int present_flash_pratition_percent = 0;
+    int flash_partition_percent = 99 / flash_partition_num;
+    int present_flash_partition_percent = 0;
 
     if(partition_flash_flag.ap != 0) {
-        for (int i = 0; i < sub_pratition_len.ap; i++) {
+        for (int i = 0; i < sub_partition_len.ap; i++) {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash aboot,img_name=appsboot.mbn\n");
@@ -2410,8 +2698,8 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
 
-            present_flash_pratition_percent += flash_pratition_percent;
-            itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+            present_flash_partition_percent += flash_partition_percent;
+            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
             sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
             fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
             fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
@@ -2422,14 +2710,31 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
             FIBO_LOG_DEBUG("payload_analysis->flashpath = %s %d\n",payload_analysis.flashpath,__LINE__);
             FIBO_LOG_DEBUG("payload_analysis->ap_ver = %s %d\n",payload_analysis.ap_ver,__LINE__);
 
-            sprintf(command, "fastboot flash %s %s%s/%s", ap_pratition[i].lable, payload_analysis.flashpath, payload_analysis.ap_ver,
-            ap_pratition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", ap_partition[i].lable, payload_analysis.flashpath, payload_analysis.ap_ver,
+            ap_partition[i].filename);
             FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
 
             fp = popen(command, "r");
             if (fp == NULL) {
                 FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
                 continue;
+            }
+
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", ap_partition[i].lable);
             }
 
             ret = pclose(fp);
@@ -2450,7 +2755,7 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
 
 
     if(partition_flash_flag.ap != 0) {
-        for (int i = 0; i < sub_pratition_len.sbl; i++) {
+        for (int i = 0; i < sub_partition_len.sbl; i++) {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash sbl,img_name=sbl1.mbn\n");
@@ -2459,15 +2764,15 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
 
-            present_flash_pratition_percent += flash_pratition_percent;
-            itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+            present_flash_partition_percent += flash_partition_percent;
+            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
             sprintf(fastboot_flash.progress_percentage, "%s\n", fastboot_flash.progress_percentage);
             fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
             fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
 
             fp = NULL;
-            sprintf(command, "fastboot flash %s %s%s/%s", sbl_pratition[i].lable, payload_analysis.flashpath, "basic_update_img",
-                    sbl_pratition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", sbl_partition[i].lable, payload_analysis.flashpath, "basic_update_img",
+                    sbl_partition[i].filename);
 
             FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
 
@@ -2475,6 +2780,23 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
             if (fp == NULL) {
                 FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
                 continue;
+            }
+
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", sbl_partition[i].lable);
             }
 
             ret = pclose(fp);
@@ -2492,14 +2814,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
 
     if(partition_flash_flag.modem != 0)
     {
-        for (int i = 0; i < sub_pratition_len.modem; i++)
+        for (int i = 0; i < sub_partition_len.modem; i++)
         {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash modem,img_name=NON-HLOS.ubi\n");
                     fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
-                    present_flash_pratition_percent += flash_pratition_percent;
-                    itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+                    present_flash_partition_percent += flash_partition_percent;
+                    itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
                     sprintf(fastboot_flash.progress_percentage, "%s\n", fastboot_flash.progress_percentage);
                     fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
                     fflush(fastboot_flash.progress_fp);
@@ -2508,7 +2830,7 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
             fp = NULL;
-            sprintf(command, "fastboot flash %s %s%s/%s", modem_pratition[i].lable, payload_analysis.flashpath, payload_analysis.modem_ver, modem_pratition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", modem_partition[i].lable, payload_analysis.flashpath, payload_analysis.modem_ver, modem_partition[i].filename);
             fp = popen(command, "r");
             if (fp == NULL)
             {
@@ -2516,7 +2838,22 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                 continue;
             }
 
-            while(fgets(command_rsp, AT_COMMAND_LEN, fp) != NULL);
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", modem_partition[i].lable);
+            }
 
             ret = pclose(fp);
             if (ret != RET_OK)
@@ -2540,14 +2877,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
         fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
         fflush(fastboot_flash.progress_fp);
 
-        for (int i = 0; i < sub_pratition_len.dev; i++)
+        for (int i = 0; i < sub_partition_len.dev; i++)
         {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash modem,img_name=devicepack.ubi\n");
                     fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
-                    present_flash_pratition_percent += flash_pratition_percent;
-                    itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+                    present_flash_partition_percent += flash_partition_percent;
+                    itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
                     sprintf(fastboot_flash.progress_percentage, "%s\n", fastboot_flash.progress_percentage);
                     fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
                     fflush(fastboot_flash.progress_fp);
@@ -2556,7 +2893,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
             fp = NULL;
-            sprintf(command, "fastboot flash %s %sDEV_OTA_PACKAGE/%s/%s", dev_pratition[i].lable, payload_analysis.flashpath, payload_analysis.dev_ver_path, dev_pratition[i].filename);
+
+            if(strstr(payload_analysis.dev_ver,"default") != NULL){
+                sprintf(command, "fastboot flash %s %s%s/%s 2>&1", dev_partition[i].lable, payload_analysis.flashpath, payload_analysis.oem_ver_path, dev_partition[i].filename);
+            }
+            else{
+                sprintf(command, "fastboot flash %s %sDEV_OTA_PACKAGE/%s/%s 2>&1", dev_partition[i].lable, payload_analysis.flashpath, payload_analysis.dev_ver_path, dev_partition[i].filename);
+            }
+
             fp = popen(command, "r");
             if (fp == NULL)
             {
@@ -2564,7 +2908,22 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                 continue;
             }
 
-            while(fgets(command_rsp, AT_COMMAND_LEN, fp) != NULL);
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", dev_partition[i].lable);
+            }
 
             ret = pclose(fp);
             if (ret != RET_OK)
@@ -2586,14 +2945,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
 
     if(partition_flash_flag.oem != 0)
     {
-        for (int i = 0; i < sub_pratition_len.oem; i++)
+        for (int i = 0; i < sub_partition_len.oem; i++)
         {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash oem,img_name=oempack.ubi\n");
                     fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
-                    present_flash_pratition_percent += flash_pratition_percent;
-                    itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+                    present_flash_partition_percent += flash_partition_percent;
+                    itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
                     sprintf(fastboot_flash.progress_percentage, "%s\n", fastboot_flash.progress_percentage);
                     fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
                     fflush(fastboot_flash.progress_fp);
@@ -2602,7 +2961,7 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
             fp = NULL;
-            sprintf(command, "fastboot flash %s %s%s/%s", oem_pratition[i].lable, payload_analysis.flashpath, payload_analysis.oem_ver_path, oem_pratition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", oem_partition[i].lable, payload_analysis.flashpath, payload_analysis.oem_ver_path, oem_partition[i].filename);
             FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
             fp = popen(command, "r");
             if (fp == NULL)
@@ -2611,7 +2970,22 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                 continue;
             }
 
-            while(fgets(command_rsp, AT_COMMAND_LEN, fp) != NULL);
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", oem_partition[i].lable);
+            }
 
             ret = pclose(fp);
             if (ret != RET_OK)
@@ -2632,14 +3006,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
 
     if(partition_flash_flag.op != 0)
     {
-        for (int i = 0; i < sub_pratition_len.op; i++)
+        for (int i = 0; i < sub_partition_len.op; i++)
         {
             switch (i) {
                 case 0:
                     strcpy(fastboot_flash.progress_text, "#flash op,img_name=operatorpack.ubi\n");
                     fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
-                    present_flash_pratition_percent += flash_pratition_percent;
-                    itoa(present_flash_pratition_percent, fastboot_flash.progress_percentage, 10);
+                    present_flash_partition_percent += flash_partition_percent;
+                    itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
                     sprintf(fastboot_flash.progress_percentage, "%s\n", fastboot_flash.progress_percentage);
                     fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
                     fflush(fastboot_flash.progress_fp);
@@ -2648,7 +3022,7 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                     break;
             }
             fp = NULL;
-            sprintf(command, "fastboot flash %s %s%s/%s", op_pratition[i].lable, payload_analysis.flashpath, payload_analysis.op_ver_path, op_pratition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", op_partition[i].lable, payload_analysis.flashpath, payload_analysis.op_ver_path, op_partition[i].filename);
             fp = popen(command, "r");
             if (fp == NULL)
             {
@@ -2656,7 +3030,22 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
                 continue;
             }
 
-            while(fgets(command_rsp, AT_COMMAND_LEN, fp) != NULL);
+            memset(buf,0,sizeof(buf));
+
+            ret = fread(buf, sizeof(char), sizeof(buf), fp);
+            if(ret == RET_ERROR)
+            {
+                memcpy(buf,"fread error", strlen("fread error") + 1);
+                FIBO_LOG_CRITICAL("fread fp error\n");
+            }
+
+            if(strstr(buf, "Finished. Total time:") != NULL)
+            {
+                *fastboot_success_flag += 1;
+            }
+            else{
+                FIBO_LOG_CRITICAL("flash error %s\n", op_partition[i].lable);
+            }
 
             ret = pclose(fp);
             if (ret != RET_OK)
@@ -2693,6 +3082,14 @@ gpointer fibocom_fastboot_flash_command(gpointer payload) {
         FIBO_LOG_DEBUG("%s command return error! %d\n", __func__, __LINE__);
     }
 
+
+    if(*fastboot_success_flag == flash_partition_num)
+    {
+        *fastboot_success_flag = 1;
+    }
+    else{
+        *fastboot_success_flag = 0;
+    }
     return NULL;
 }
 
@@ -2892,19 +3289,26 @@ gpointer edl_flashing_command(void *data)
         FIBO_LOG_ERROR("[%s]: ===========================================:%s\n",__func__, (char *)data);
     }
     fibocom_qdl_flash_command((char *)data);
-    emit_edl_flash_status_signal("flashing ok");
+    emit_edl_flash_status_signal("flash ok");
     FIBO_LOG_ERROR("[%s]:======================================== :%s\n",__func__, (char *)data);
 }
 
 gpointer fastboot_flashing_command(void *data)
 {
+    int fastboot_success_flag = 0;
     FIBO_LOG_ERROR("[%s]: ===========================================:%s\n",__func__, (char *)data);
     fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flashing..."), "fastboot flashing...");
     //emit_fastboot_flash_status_signal("fastboot flashing...");
     if((char *)data)
     {
-        fibocom_fastboot_flash_command((char *)data);
-        fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flashing ok"), "fastboot flashing ok");
+        fibocom_fastboot_flash_command((char *)data, &fastboot_success_flag);
+        if(fastboot_success_flag == 1){
+            fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flash ok"), "fastboot flash ok");
+        }
+        else{
+            fibo_adapter_send_control_message_to_dbus(FLASH_FW_FASTBOOT, (int)strlen("fastboot flash fail"), "fastboot flash fail");
+        }
+
         //emit_fastboot_flash_status_signal("fastboot flashing ok");
         FIBO_LOG_ERROR("[%s]:======================================== :%s\n",__func__, (char *)data);
     }
@@ -2933,8 +3337,6 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
     gint payloadlen = 0;
     int ret = 0;
 
-
-    FIBO_LOG_ERROR ("===============enter!\n");
     payload = malloc(sizeof(char) * 512);
     memset(payload,0,sizeof(char) * 512);
 
@@ -2955,16 +3357,48 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
         userdata = NULL;
     }
 
+    usleep(1000*1000*3);
+
     char get_qdl_port_cmd[128] = "lsusb | grep \"Fibocom Fibocom FM101 Modem\" | awk -F ' ' 'NR=6 {print $6}'";
     FILE *get_port_fp =NULL;
-    get_port_fp = popen(get_qdl_port_cmd,"r");
-    usleep(1000*1000*3);
-    if(get_port_fp == NULL) {
-        FIBO_LOG_DEBUG("open get_port_cmd error\n");
+    char buf[32] = {0};
+
+    for (int i = 0; i < 5; ++i) {
+        get_port_fp = NULL;
+        memset(buf,0,sizeof(buf));
+
+        get_port_fp = popen(get_qdl_port_cmd,"r");
+        if(get_port_fp == NULL) {
+            FIBO_LOG_DEBUG("open get_port_cmd error\n");
+            usleep(1000 * 1000 * 1);
+            continue;
+        }
+
+        ret = fread(buf, sizeof(char), sizeof(buf), get_port_fp);
+        if(ret == RET_ERROR)
+        {
+            FIBO_LOG_DEBUG("fread get_port_cmd error\n");
+            memcpy(buf, "dont match fastboot port", strlen("dont match fastboot port") + 1);
+            pclose(get_port_fp);
+            usleep(1000 * 1000 * 1);
+        }
+        else{
+            FIBO_LOG_DEBUG("fread get_port_cmd success\n");
+            FIBO_LOG_DEBUG("%s\n",buf);
+            break;
+        }
     }
+
     pclose(get_port_fp);
 
-    sprintf(resp_str,"fastboot_flashing");
+    if(strstr(buf, "2cb7:d00d") != NULL)
+    {
+        sprintf(resp_str,"fastboot_flashing");
+    }
+    else{
+        sprintf(resp_str,"fastboot_switch_port");
+        rtcode = 1;
+    }
 
     ret = alloc_and_send_resp_structure(service_id, cid, rtcode, strlen(resp_str), resp_str);
 
@@ -2974,10 +3408,12 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
         FIBO_LOG_ERROR("send resp to main loop failed!\n");
     }
 
-    FIBO_LOG_DEBUG("%s     %d", payload,__LINE__);
-    GThread *gthread_fastboot_flash = NULL;
-    gthread_fastboot_flash = g_thread_new("fastboot_flash", fastboot_flashing_command, payload);
-
+    if(strstr(buf, "2cb7:d00d") != NULL)
+    {
+        FIBO_LOG_DEBUG("%s     %d", payload,__LINE__);
+        GThread *gthread_fastboot_flash = NULL;
+        gthread_fastboot_flash = g_thread_new("fastboot_flash", fastboot_flashing_command, payload);
+    }
     return TRUE;
 }
 /*--------------------------------------qdl flash && fastboot flash end------------------------------------------------*/

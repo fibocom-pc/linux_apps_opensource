@@ -1,0 +1,4 @@
+#!/bin/bash
+#remove vid:pid link file befor packge remove
+# rm -rf /usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d/*:*
+systemctl daemon-reload

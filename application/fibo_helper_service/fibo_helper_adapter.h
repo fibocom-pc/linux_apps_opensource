@@ -50,8 +50,12 @@ typedef enum{
 
 typedef enum
 {
-    SEQ_INPUT  =  0,
-    SEQ_OUTPUT =  1
+    SEQ_INPUT      =  0,
+    SEQ_OUTPUT     =  1,
+    HELPERM_INPUT  = SEQ_INPUT,
+    HELPERM_OUTPUT = SEQ_OUTPUT,
+    HELPERD_INPUT  = SEQ_OUTPUT,
+    HELPERD_OUTPUT = SEQ_INPUT
 }queue_enum_type;
 
 typedef enum
@@ -83,20 +87,20 @@ typedef struct
 {
     cellular_state_enum_type cellular_state;
     cellular_type_enum_type  cellular_type;
-    char                     work_module_name[FIBOCOM_MODULE_NAME_LEN];
+    gchar                     work_module_name[FIBOCOM_MODULE_NAME_LEN];
     gint                     module_info_index;
 } fibocom_cellular_type;
 
 typedef struct
 {
-    char module_name[FIBOCOM_MODULE_NAME_LEN];
-    char module_type;
-    char usbsubsysid[FIBOCOM_MODULE_USBID_LEN];
-    char pciessvid[FIBOCOM_MODULE_PCIESSVID_LEN];
-    char pciessdid[FIBOCOM_MODULE_PCIESSDID_LEN];
-    char mbimportname[FIBOCOM_MODULE_MBIMPORT_LEN];
-    char dlportname[FIBOCOM_MODULE_DLPORT_LEN];
-    char atportname[FIBOCOM_MODULE_ATPORT_LEN];
+    gchar module_name[FIBOCOM_MODULE_NAME_LEN];
+    gchar module_type;
+    gchar usbsubsysid[FIBOCOM_MODULE_USBID_LEN];
+    gchar pciessvid[FIBOCOM_MODULE_PCIESSVID_LEN];
+    gchar pciessdid[FIBOCOM_MODULE_PCIESSDID_LEN];
+    gchar mbimportname[FIBOCOM_MODULE_MBIMPORT_LEN];
+    gchar dlportname[FIBOCOM_MODULE_DLPORT_LEN];
+    gchar atportname[FIBOCOM_MODULE_ATPORT_LEN];
 } Fibocom_module_info_type;
 
 typedef struct
@@ -113,8 +117,6 @@ typedef struct
     char   mtext[0];  // should be fibo_async_struct_type.
 }helper_message_struct;
 
-#define GET_ALL_INFO_FLAG -1
-
 void     fibo_adapter_trigger_app_exit(void);
 gint     fibo_adapter_alloc_and_send_resp_structure(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str);
 void     fibo_adapter_mutex_sim_insert_flag_operate_lock(void);
@@ -123,25 +125,19 @@ void     fibo_adapter_mutex_mbim_flag_operate_unlock(void);
 void     fibo_adapter_mutex_mbim_flag_operate_lock(void);
 void     fibo_adapter_mutex_keep_pointer_exist_unlock(void);
 void     fibo_adapter_mutex_keep_pointer_exist_lock(void);
-void     fibo_adapter_mutex_async_pointer_operate_unlock(void);
-void     fibo_adapter_mutex_async_pointer_operate_lock(void);
 void     fibo_adapter_mutex_cellular_info_operate_unlock(void);
 void     fibo_adapter_mutex_cellular_info_operate_lock(void);
-void     fibo_adapter_mutex_modem_info_unlock(void);
-void     fibo_adapter_mutex_modem_info_lock(void);
 void     fibo_adapter_mutex_force_sync_unlock(void);
 void     fibo_adapter_mutex_force_sync_lock(void);
 gint     fibo_adapter_all_mutex_init(void);
-int      fibo_adapter_send_at_command(const char *req_cmd, char *rspbuf, const char *mbimportname);
-int      fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload_str);
-int      fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload_str);
+gint     fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload_str);
+gint     fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload_str);
 void     fibo_adapter_send_async_resp_to_dbus(FibocomGdbusHelper *skeleton, GDBusMethodInvocation *invocation, gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str);
-int      fibo_adapter_get_supported_module_number(void);
-int      fibo_adapter_get_supported_module_info(Fibocom_module_info_type *module_info, gint index);
-int      fibo_adapter_get_work_cellular_info(fibocom_cellular_type *work_cellular_info);
-int      fibo_adapter_set_work_cellular_info(fibocom_cellular_type *work_cellular_info);
+gint     fibo_adapter_get_supported_module_number(void);
+gint     fibo_adapter_get_supported_module_info(Fibocom_module_info_type *module_info, gint index);
+gint     fibo_adapter_get_work_cellular_info(fibocom_cellular_type *work_cellular_info);
+gint     fibo_adapter_set_work_cellular_info(fibocom_cellular_type *work_cellular_info);
 gint     fibo_adapter_set_linux_app_signals(void);
-void     fibo_adapter_send_message_resp(MbimDevice *device, GAsyncResult *res);
 gint     fibo_adapter_send_message_async(void *message, guint32 len, guint32 timeout, GAsyncReadyCallback callback, gpointer user_data);
 void     fibo_adapter_udev_deinit(void);
 gint     fibo_adapter_udev_init(gint cellular_type, gint *output_fd);
@@ -149,18 +145,18 @@ gint     fibo_adapter_check_cellular(gint *check_result);
 void     fibo_adapter_mbim_port_deinit(void);
 void     fibo_adapter_mbim_port_init(char *mbimportname);
 void     fibo_adapter_control_mbim_init(void);
-void     fibo_adapter_device_Check(void);
-int      fibo_adapter_dbus_register_helper_service(void);
-gboolean fibo_adapter_check_module_info_table(void);
-gint     fibo_adapter_get_any_req_from_dbus(void *msgs);
-gint     fibo_adapter_get_normal_req_from_dbus(void *msgs);
-gint     fibo_adapter_get_control_req_from_dbus(void *msgs);
-gint     fibo_adapter_send_resp_to_dbus(void *msgs, int msgsize);
-gint     fibo_adapter_get_control_req_from_mbim(void *msgs);
-gint     fibo_adapter_get_normal_resp_from_mbim(void *msgs);
-gint     fibo_adapter_send_control_req_to_mbim(void *msgs, int msgsize);
-gint     fibo_adapter_send_req_to_mbim(void *msgs, int msgsize);
-int      fibo_adapter_get_helper_seq_id(int seq);
-int      fibo_adapter_helper_queue_init(void);
+void     fibo_adapter_device_Check(gpointer user_data);
+
+gint     fibo_adapter_helperm_get_normal_msg_from_helperd(void *msgs);
+gint     fibo_adapter_helperm_get_control_msg_from_helperd(void *msgs);
+gint     fibo_adapter_helperm_send_msg_to_helperd(void *msgs, int msgsize);
+gint     fibo_adapter_helperd_get_control_msg_from_helperm(void *msgs);
+gint     fibo_adapter_helperd_get_normal_msg_from_helperm(void *msgs);
+gint     fibo_adapter_helperd_send_req_to_helperm(void *msgs, int msgsize);
+gint     fibo_adapter_get_helper_seq_id(int seq);
+gint     fibo_adapter_helper_queue_init(void);
+gint     fibo_adapter_helperm_get_local_mccmnc(void);
+
+int      fibo_adapter_send_at_command(const char *req_cmd, char *rspbuf, const char *mbimportname);
 
 #endif /* _FIBO_HELPER_ADAPTER_H_ */
