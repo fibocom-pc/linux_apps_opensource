@@ -26,18 +26,30 @@ cmake_minimum_required(VERSION 3.6)
 project(fibocom_linux VERSION 1.0.0)
 
 add_subdirectory (application)
+
+# enable_testing()
+# add_subdirectory(test)
+
 install(CODE "MESSAGE(\"start install script.\")")
 install(CODE "execute_process(COMMAND bash ${PROJECT_SOURCE_DIR}/install)")
 install(CODE "MESSAGE(\"run install script success.\")")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/opt/fibocom" FILE_PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION "/opt")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/udev/rules.d/" DESTINATION "/usr/lib/udev/rules.d")
+
+set(DEFAULT_INSTALL_PREFIX "")
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX ${DEFAULT_INSTALL_PREFIX} CACHE PATH "Default installation path" FORCE)
+endif()
+message(STATUS "Installation prefix: ${CMAKE_INSTALL_PREFIX}")  
+
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/opt/fibocom" FILE_PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION "${CMAKE_INSTALL_PREFIX}/opt")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/udev/rules.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/udev/rules.d")
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d/"  
             FILE_PERMISSIONS    OWNER_EXECUTE OWNER_WRITE OWNER_READ
                                 GROUP_EXECUTE GROUP_READ 
                                 WORLD_EXECUTE WORLD_READ
-            DESTINATION "/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/lib/systemd/system/" DESTINATION "/lib/systemd/system")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/etc/dbus-1/system.d/" DESTINATION "/etc/dbus-1/system.d")
+            DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/lib/systemd/system/" DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/systemd/system")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/etc/dbus-1/system.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/etc/dbus-1/system.d")
 install(CODE "MESSAGE(\"install success!\")")
 
 

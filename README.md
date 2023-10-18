@@ -27,10 +27,13 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
 - sudo apt install libmm-glib-dev<br>
 
 ## 2. Build
-1.cmake -S . -B build<br>
-2.cmake --build build<br>
-3.cd build<br>
-4.sudo make install<br>
+1. cmake -S . -B build<br>
+  if you want to install custom path you can send cmd:<br>
+    `cmake -S . -B build --install-prefix <custm path>` <br>
+2. cmake --build build<br>
+3. sudo cmake --install build<br>
+  if you install custom path in home path you can send cmd:<br>
+    `cmake --install`<br>
 
 ## 3. If using systemd, use
 - load config file<br>

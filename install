@@ -1,6 +1,7 @@
 #! /bin/bash
 
-BUILD_DIR=`pwd`
+basedir=`cd \`dirname $0\`; pwd`
+BUILD_DIR=${basedir}/build
 APP_DIR="${BUILD_DIR}/application"
 CONFIG_SERVICE_APP_DIR="${APP_DIR}/fibo_config_service"
 CONFIG_SERVICE_APP_PATH="${APP_DIR}/fibo_config_service/fibo_config*"
