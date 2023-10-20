@@ -49,7 +49,7 @@ install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/M
                                 WORLD_EXECUTE WORLD_READ
             DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/lib/systemd/system/" DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/systemd/system")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/etc/dbus-1/system.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/etc/dbus-1/system.d")
+install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/share/dbus-1/system.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/share/dbus-1/system.d")
 install(CODE "MESSAGE(\"install success!\")")
 
 

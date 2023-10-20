@@ -1287,7 +1287,7 @@ void fibo_helper_control_receiver(void)
 
         user_data = (fibo_async_struct_type *)msgs->mtext;
         if (!user_data->cid) {
-            FIBO_LOG_ERROR("cid invalid!\n");
+            // FIBO_LOG_ERROR("cid invalid!\n");
             continue;
         }
 

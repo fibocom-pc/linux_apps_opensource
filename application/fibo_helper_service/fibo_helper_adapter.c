@@ -102,7 +102,7 @@ quit_cb (gint user_data)
     system(cmd_buf);
 
     if (gMainLoop) {
-        FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");
+        //FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");
         g_main_loop_quit(gMainLoop);
     }
 
@@ -1566,7 +1566,7 @@ fibo_adapter_helperd_send_req_to_helperm(void *msgs, gint msgsize)
 gint
 fibo_adapter_get_helper_seq_id(gint seq)
 {
-    gint ipc_key = ftok("/etc/dbus-1/system.d/com.fibocom.helper.conf", seq);  // calculate individual message id.
+    gint ipc_key = ftok(".", seq);  // calculate individual message id.
     gint seqid   = RET_ERROR;
 
     if (ipc_key == RET_ERROR)
@@ -1595,7 +1595,7 @@ fibo_adapter_helper_queue_init(void)
 
     for (i = 0; i < 2; i++)
     {
-        ipc_key = ftok("/etc/dbus-1/system.d/com.fibocom.helper.conf", i);  // calculate individual message id.
+        ipc_key = ftok(".", i);  // calculate individual message id.
         if (ipc_key == RET_ERROR)
         {
             FIBO_LOG_ERROR("can't alloc queue id!\n");
