@@ -74,7 +74,7 @@ int main(int argc, char **argv)
         {
             // break;
             /* No other configuration items are available. Exit after the configuration is complete */
-            return 1;
+            return 0;
         }
     }
     if(!msg_init())
