@@ -43,11 +43,11 @@ message(STATUS "Installation prefix: ${CMAKE_INSTALL_PREFIX}")
 
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/opt/fibocom" FILE_PERMISSIONS  OWNER_EXECUTE OWNER_WRITE OWNER_READ DESTINATION "${CMAKE_INSTALL_PREFIX}/opt")
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/udev/rules.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/udev/rules.d")
-install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d/"  
-            FILE_PERMISSIONS    OWNER_EXECUTE OWNER_WRITE OWNER_READ
-                                GROUP_EXECUTE GROUP_READ 
-                                WORLD_EXECUTE WORLD_READ
-            DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
+# install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d/"  
+#             FILE_PERMISSIONS    OWNER_EXECUTE OWNER_WRITE OWNER_READ
+#                                 GROUP_EXECUTE GROUP_READ 
+#                                 WORLD_EXECUTE WORLD_READ
+#             DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d")
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/lib/systemd/system/" DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/systemd/system")
 install(DIRECTORY "${PROJECT_BINARY_DIR}/release/dpkg/usr/share/dbus-1/system.d/" DESTINATION "${CMAKE_INSTALL_PREFIX}/usr/share/dbus-1/system.d")
 install(CODE "MESSAGE(\"install success!\")")
@@ -55,8 +55,8 @@ install(CODE "MESSAGE(\"install success!\")")
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "linux-apps")
-set(CPACK_PACKAGE_VERSION "1.0.3")
-set(CPACK_DEBIAN_FILE_NAME "fibo-apps-${CPACK_PACKAGE_VERSION}.deb")
+set(CPACK_PACKAGE_VERSION "1.0.5")
+set(CPACK_DEBIAN_FILE_NAME "${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}.deb")
 set(CPACK_DEBIAN_PACKAGE_GROUP "fibocom")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "WWAN Linux apps")
 set(CPACK_DEBIAN_PACKAGE_SECTION "base")

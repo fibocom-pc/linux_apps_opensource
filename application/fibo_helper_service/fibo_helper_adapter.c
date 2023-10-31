@@ -54,6 +54,8 @@ fibocom_cellular_type g_cellular_info                = {CELLULAR_STATE_UNKNOWN, 
 async_user_data_type  user_data                      = {0, 0, NULL, NULL};
 
 extern FibocomGdbusHelper *g_skeleton;
+extern gint               g_current_svcid;
+extern gint               g_current_cid;
 
 #define REQUEST_MAX_RETRY                2
 #define DEFAULT_CELLULAR_TYPE            "usb"
@@ -93,7 +95,7 @@ quit_cb (gint user_data)
     input_seq_id  = fibo_adapter_get_helper_seq_id(SEQ_INPUT);
     output_seq_id = fibo_adapter_get_helper_seq_id(SEQ_OUTPUT);
 
-    // fibo_adapter_send_control_message_to_mbim(CTL_MBIM_END, 0, NULL);
+    // fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_END, 0, NULL);
 
     sprintf(cmd_buf, "ipcrm -q %d", input_seq_id);
     system(cmd_buf);
@@ -102,37 +104,215 @@ quit_cb (gint user_data)
     system(cmd_buf);
 
     if (gMainLoop) {
-        //FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");
+        FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");
         g_main_loop_quit(gMainLoop);
     }
 
     return;
 }
 
+gboolean g_sim_locked_flag   = FALSE;
+gboolean g_sim_inserted_flag = FALSE;
+
+static void
+fibo_basic_connect_notification_subscriber_ready_status (MbimDevice           *device,
+                                                    MbimMessage          *notification)
+{
+    MbimSubscriberReadyState ready_state       = MBIM_SUBSCRIBER_READY_STATE_FAILURE;
+    g_autoptr(GError)        error             = NULL;
+
+    if (mbim_device_check_ms_mbimex_version (device, 3, 0)) {
+        if (!mbim_message_ms_basic_connect_v3_subscriber_ready_status_notification_parse (
+                notification,
+                &ready_state,
+                NULL, /* flags */
+                NULL, /* subscriber id */
+                NULL, /* sim_iccid */
+                NULL, /* ready_info */
+                NULL, /* telephone_numbers_count */
+                NULL, /* telephone number */
+                &error)) {
+            FIBO_LOG_ERROR ("Failed processing MBIMEx v3.0 subscriber ready status notification: %s", error->message);
+            return;
+        }
+        FIBO_LOG_DEBUG("processed MBIMEx v3.0 subscriber ready status notification\n");
+    } else {
+        if (!mbim_message_subscriber_ready_status_notification_parse (
+                notification,
+                &ready_state,
+                NULL, /* subscriber_id */
+                NULL, /* sim_iccid */
+                NULL, /* ready_info */
+                NULL, /* telephone_numbers_count */
+                NULL, /* telephone number */
+                &error)) {
+            FIBO_LOG_ERROR ("Failed processing subscriber ready status notification: %s", error->message);
+            return;
+        }
+        FIBO_LOG_DEBUG ("processed subscriber ready status notification");
+    }
+
+    FIBO_LOG_DEBUG("ready state:%d\n", ready_state);
+
+    switch (ready_state) {
+        case MBIM_SUBSCRIBER_READY_STATE_NO_ESIM_PROFILE:
+            FIBO_LOG_ERROR("Not support ESIM yet!\n");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_DEVICE_LOCKED:
+            FIBO_LOG_DEBUG("Duplicated ind, SIM card is locked!\n");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_INITIALIZED:
+            if (g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card was inserted before, abort to send signal!\n");
+                break;
+            }
+            g_sim_inserted_flag = TRUE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM inserted"), "SIM inserted");
+
+            // HOME PROVIDER not support indication, so here have to manually query.
+            fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_HOME_PROVIDER_QUERY, 0, NULL);
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_NOT_INITIALIZED:
+            FIBO_LOG_ERROR("SIM card is initializing!\n");
+            if (g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card was inserted before, abort to send signal!\n");
+                break;
+            }
+            g_sim_inserted_flag = TRUE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM inserted"), "SIM inserted");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_FAILURE:
+            FIBO_LOG_DEBUG("Failure on SIM card state! treat it as SIM card removed!\n");
+        case MBIM_SUBSCRIBER_READY_STATE_SIM_NOT_INSERTED:
+            if (!g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card not inserted at all, abort to send signal!\n");
+                break;
+            }
+            g_sim_inserted_flag = FALSE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM removed"), "SIM removed");
+            break;
+        default:
+            FIBO_LOG_ERROR("Unsupported SIM card ready state: %d!\n", ready_state);
+    }
+    return;
+}
+
+static void
+basic_connect_notification_register_state (MbimDevice           *device,
+                                                    MbimMessage          *notification)
+{
+    MbimRegisterState  register_state = MBIM_REGISTER_STATE_UNKNOWN;
+    g_autofree gchar   *provider_id   = NULL;
+    g_autoptr(GError)  error          = NULL;
+
+    if (mbim_device_check_ms_mbimex_version (device, 2, 0)) {
+            if (!mbim_message_ms_basic_connect_v2_register_state_notification_parse (
+                    notification,
+                    NULL, /* nw error */
+                    &register_state,
+                    NULL, /* register_mode */
+                    NULL, /* available_data_classses */
+                    NULL, /* current_cellular_class */
+                    &provider_id,
+                    NULL, /* provider_name */
+                    NULL, /* roaming_text */
+                    NULL, /* registration_flag */
+                    NULL, /* preferred_data_classes */
+                    &error)) {
+                FIBO_LOG_ERROR("Failed processing MBIMEx v2.0 register state indication\n");
+                return;
+            }
+    } else {
+            if (!mbim_message_register_state_notification_parse (
+                    notification,
+                    NULL, /* nw error */
+                    &register_state,
+                    NULL, /* register_mode */
+                    NULL, /* available_data_classses */
+                    NULL, /* current_cellular_class */
+                    &provider_id,
+                    NULL, /* provider_name */
+                    NULL, /* roaming_text */
+                    NULL, /* registration_flag */
+                    &error)) {
+                FIBO_LOG_ERROR("Failed processing register state indication\n");
+                return;
+            }
+    }
+
+    if (provider_id) {
+        FIBO_LOG_DEBUG("provider id: %s\n", provider_id);
+        fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_REGISTER_STATE_IND, strlen(provider_id), provider_id);
+    } else {
+        FIBO_LOG_DEBUG("register state: %s\n", mbim_register_state_get_string (register_state));
+        FIBO_LOG_DEBUG("Dont get valid roam mccmnc!\n");
+    }
+
+    return;
+}
+
+static void
+fibo_adapter_mbim_bc_ind_parse(MbimDevice   *Device, MbimMessage   *notification)
+{
+    guint        cid         = RET_OK;
+
+    cid = mbim_message_indicate_status_get_cid (notification);
+    switch (cid) {
+    case MBIM_CID_BASIC_CONNECT_REGISTER_STATE:
+            basic_connect_notification_register_state (Device, notification);
+        break;
+    case MBIM_CID_BASIC_CONNECT_SUBSCRIBER_READY_STATUS:
+            fibo_basic_connect_notification_subscriber_ready_status (Device, notification);
+        break;
+    default:
+        // FIBO_LOG_DEBUG("Unsupported cid: %d\n", cid);
+    }
+    return;
+}
+
+static void
+fibo_adapter_mbim_bcext_ind_parse(MbimDevice   *Device, MbimMessage   *notification)
+{
+    guint        cid         = RET_OK;
+
+    cid = mbim_message_indicate_status_get_cid (notification);
+    switch (cid) {
+        case MBIM_CID_MS_BASIC_CONNECT_EXTENSIONS_SLOT_INFO_STATUS:
+            FIBO_LOG_DEBUG("Noted SLOT_INFO_STATUS cid for debug!\n");
+            // ms_basic_connect_extensions_notification_slot_info_status (Device, notification);
+            break;
+        default:
+            // FIBO_LOG_DEBUG("Unsupported cid: %d\n", cid);
+    }
+
+    return;
+}
+
 static gint
-port_notification_cb (MbimDevice   *Device,
+fibo_port_notification_cb (MbimDevice   *Device,
                       MbimMessage  *notification,
                       gpointer     userdata)
 {
-    FIBO_LOG_DEBUG("port_notification_cb hello world!\n");
-
     guint        cid         = RET_OK;
-    const gchar  *raw_buffer = NULL;
     MbimService  service     = RET_OK;
+
+    FIBO_LOG_DEBUG("enter!\n");
 
     service = mbim_message_indicate_status_get_service (notification);
     cid     = mbim_message_indicate_status_get_cid (notification);
 
-    FIBO_LOG_DEBUG("indication service is %d, cid is %d\n", service, cid);
-
-    raw_buffer = mbim_cid_get_printable (service, cid);
-    if (!raw_buffer) {
-        FIBO_LOG_ERROR("raw buffer is NULL!\n");
-        return RET_ERROR;
+    switch (service) {
+        case MBIM_SERVICE_BASIC_CONNECT:
+            fibo_adapter_mbim_bc_ind_parse(Device, notification);
+        break;
+        case MBIM_SERVICE_MS_BASIC_CONNECT_EXTENSIONS:
+            fibo_adapter_mbim_bcext_ind_parse(Device, notification);
+        break;
+        default:
+            FIBO_LOG_DEBUG("get unsupported mbim indication! service is %d, cid is %d\n", service, cid);
     }
 
-    FIBO_LOG_DEBUG("Message:%s\n", raw_buffer);
-
+    // here can't return 0 cause it will block ModemManager or other APP's indication func!
     return RET_ERROR;
 }
 
@@ -147,7 +327,7 @@ device_open_ready (MbimDevice   *dev,
     if (!mbim_device_open_finish (dev, res, &error)) {
         g_printerr ("error: couldn't open the MbimDevice: %s\n",
                     error->message);
-        exit (EXIT_FAILURE);
+        return;
     }
 
     FIBO_LOG_DEBUG ("MBIM Device at '%s' ready\n",
@@ -158,13 +338,13 @@ device_open_ready (MbimDevice   *dev,
     fibo_adapter_mutex_mbim_flag_operate_unlock();
 
     FIBO_LOG_DEBUG("mbim port init finished! flag:%d\n", g_mbim_device_init_flag);
-/*
+
     // further: add func to receive and deal with specific mbim indication message.
     g_signal_connect (mbimdevice,
                       MBIM_DEVICE_SIGNAL_INDICATE_STATUS,
-                      G_CALLBACK (port_notification_cb),
+                      G_CALLBACK (fibo_port_notification_cb),
                       NULL);
-*/
+
     return;
 }
 
@@ -201,7 +381,6 @@ device_new_ready (GObject      *unused,
     return;
 }
 
-
 static gint
 fibo_udev_deinit(struct udev         **udev_addr,
                  struct udev_monitor **monitor_addr)
@@ -231,8 +410,8 @@ fibo_adapter_timer_get_any_req_from_helperd(void *msgs)
 
     input_seq_id  = fibo_adapter_get_helper_seq_id(HELPERM_INPUT);
 
-    ret = msgrcv(input_seq_id, (void *)msgs, 2048, MSG_ALL, 0);  // try get first any kinds of message on message seq(input pipe).
-    if (ret == RET_ERROR)
+    ret = msgrcv(input_seq_id, (void *)msgs, 2048, MSG_ALL, IPC_NOWAIT);  // try get first any kinds of message on message seq(input pipe).
+    if (ret == RET_ERROR || ret == ENOMSG)
         return RET_ERROR;
     return RET_OK;
 }
@@ -246,7 +425,7 @@ restore_main_signal_work(gint signum)
     gint                   cid            = RET_ERROR;
     gint                   service_id     = RET_ERROR;
 
-    FIBO_LOG_ERROR("fibo-helper-mbim no resp!\n");
+    FIBO_LOG_ERROR("fibo-helperm no resp!\n");
 
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
@@ -254,19 +433,18 @@ restore_main_signal_work(gint signum)
         FIBO_LOG_ERROR("malloc failed!");
         return;
     }
-    FIBO_LOG_DEBUG("malloc finished!\n");
-    // if alarm timeout, means there must be a message on input pipe, so this func always return RET_OK.
-    ret = fibo_adapter_timer_get_any_req_from_helperd(msgs);
-    if (ret != RET_OK) {
-        FIBO_LOG_ERROR("cant get message!\n");
-        free(msgs);
-        msgs = NULL;
-        return;
-    }
+    memset(msgs, 0, 2048 * sizeof(char));
 
-    user_data = (fibo_async_struct_type *)msgs->mtext;
-    cid = user_data->cid;
-    service_id = user_data->serviceid;
+    // if alarm timeout, means there likely be a message on input pipe.
+    ret = fibo_adapter_timer_get_any_req_from_helperd(msgs);
+    if (ret == RET_OK) {
+        user_data = (fibo_async_struct_type *)msgs->mtext;
+        cid = user_data->cid;
+        service_id = user_data->serviceid;
+    } else {
+        cid = g_current_cid;
+        service_id = g_current_svcid;
+    }
 
     fibo_adapter_alloc_and_send_resp_structure(service_id, cid, RET_ERR_PROCESS, 0, NULL);
 
@@ -275,6 +453,7 @@ restore_main_signal_work(gint signum)
     msgs = NULL;
 
     FIBO_LOG_DEBUG("finished!\n");
+
     // noted below code cause we dont expect mbim's crash influence dbus.
     /*
     if (g_error_flag < 5) {
@@ -282,37 +461,11 @@ restore_main_signal_work(gint signum)
         g_error_flag++;
     }
     else
-        fibo_adapter_send_control_message_to_dbus(CTL_MBIM_NO_RESP, 0, NULL);
+        fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_NO_RESP, 0, NULL);
     FIBO_LOG_DEBUG("flag times:%d", g_error_flag);
     */
 
     return;
-}
-
-static gint
-helper_main_analyzer_timer_handle(void)
-{
-    gint ret = RET_ERROR;
-
-    signal(SIGALRM, restore_main_signal_work);
-    // set a 6s alarm cause max timeout time on AT should be common 0.5 + specially 5s.
-    ret = alarm(6);
-    if (ret != 0)
-    {
-        FIBO_LOG_DEBUG("alarm is used!\n");
-        return RET_ERROR;
-    }
-    FIBO_LOG_DEBUG("alarm created!\n");
-    return RET_OK;
-}
-
-static gint
-helper_main_analyzer_timer_close(void)
-{
-    alarm(0);
-    FIBO_LOG_DEBUG("alarm closed!\n");
-    g_error_flag = 0;
-    return RET_OK;
 }
 
 static gint
@@ -764,7 +917,7 @@ fibo_adapter_all_mutex_init()
 }
 
 gint
-fibo_adapter_send_control_message_to_dbus(gint cid, gint payloadlen, char *payload_str)
+fibo_adapter_helperm_send_control_message_to_helperd(gint cid, gint payloadlen, char *payload_str)
 {
     helper_message_struct               *msgs          = NULL;
     fibo_async_struct_type              *user_data     = NULL;
@@ -820,7 +973,7 @@ fibo_adapter_send_control_message_to_dbus(gint cid, gint payloadlen, char *paylo
 }
 
 gint
-fibo_adapter_send_control_message_to_mbim(gint cid, gint payloadlen, char *payload_str)
+fibo_adapter_helperd_send_control_message_to_helperm(gint cid, gint payloadlen, char *payload_str)
 {
     helper_message_struct               *msgs          = NULL;
     fibo_async_struct_type              *user_data     = NULL;
@@ -886,7 +1039,7 @@ fibo_adapter_send_control_message_to_mbim(gint cid, gint payloadlen, char *paylo
 }
 
 void
-fibo_adapter_send_async_resp_to_dbus(FibocomGdbusHelper     *skeleton,
+fibo_adapter_helperd_send_resp_to_dbus(FibocomGdbusHelper     *skeleton,
                                               GDBusMethodInvocation     *invocation,
                                               gint              serviceid,
                                               gint     cid,
@@ -1292,7 +1445,7 @@ fibo_adapter_control_mbim_init(void)
 
     fibo_adapter_get_supported_module_info(&module_info, work_cellular_info.module_info_index);
 
-    fibo_adapter_send_control_message_to_mbim(CTL_MBIM_INIT, strlen(module_info.mbimportname), module_info.mbimportname);
+    fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_INIT, strlen(module_info.mbimportname), module_info.mbimportname);
     return;
 }
 
@@ -1381,12 +1534,13 @@ fibo_adapter_device_Check(gpointer user_data)
 
             *device_exist_flag = TRUE;
 
-            if (g_skeleton != NULL)
-                fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
-            else
-                FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
-
             fibo_adapter_control_mbim_init();
+
+            if (g_skeleton != NULL) {
+                sleep(2);
+                fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
+            } else
+                FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
         }
         else if (0 == strcmp(action, "remove"))
         {
@@ -1415,7 +1569,7 @@ fibo_adapter_device_Check(gpointer user_data)
             else
                 FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
 
-            fibo_adapter_send_control_message_to_mbim(CTL_MBIM_DEINIT, 0, NULL);
+            fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_DEINIT, 0, NULL);
         }
         else
         {
@@ -1453,7 +1607,7 @@ fibo_adapter_helperm_get_control_msg_from_helperd(void *msgs)
 
     input_seq_id  = fibo_adapter_get_helper_seq_id(HELPERM_INPUT);
     if (input_seq_id == RET_ERROR) {
-        FIBO_LOG_ERROR("message queue not existed!\n");
+        // FIBO_LOG_ERROR("message queue not existed!\n");
         return RET_ERROR;
     }
 
@@ -1522,7 +1676,9 @@ fibo_adapter_helperd_get_normal_msg_from_helperm(void *msgs)
     }
 
     ret = msgrcv(output_seq_id, (void *)msgs, 2048, MSG_NORMAL, 0);  // try get first normal message on message seq(output pipe).
-    FIBO_LOG_DEBUG("ret:%d, errno:%s\n", ret, strerror(errno));
+    FIBO_LOG_DEBUG("ret:%d\n", ret);
+    if (ret == RET_ERROR)
+        FIBO_LOG_DEBUG("errno:%s\n", strerror(errno));
 
     while(ret == RET_ERROR && errno == 4) {  // 4: INTERRUPTED SYSTEM CALL, signal's callback influence msgrcv func!
         FIBO_LOG_DEBUG("system call error, give another chance to get!\n");
@@ -1531,8 +1687,6 @@ fibo_adapter_helperd_get_normal_msg_from_helperm(void *msgs)
 
     if (ret == RET_ERROR)
         return RET_ERROR;
-
-    // helper_main_analyzer_timer_close();
 
     return RET_OK;
 }
@@ -1614,17 +1768,44 @@ fibo_adapter_helper_queue_init(void)
     return RET_OK;
 }
 
+gint
+fibo_adapter_helperd_timer_handle(void)
+{
+    gint ret = RET_ERROR;
+
+    signal(SIGALRM, restore_main_signal_work);
+    // set a 6s alarm cause max timeout time on AT should be common 0.6s + specially 5s.
+    // if user request to download, there might be a 5s timeout to wait for fastboot port ready, so here will use default AT command timeout.
+    ret = alarm(6);
+    if (ret != RET_OK)
+    {
+        FIBO_LOG_DEBUG("alarm is used!\n");
+        return RET_ERROR;
+    }
+    FIBO_LOG_DEBUG("alarm created!\n");
+    return RET_OK;
+}
+
+gint
+fibo_adapter_helperd_timer_close(void)
+{
+    alarm(0);
+    FIBO_LOG_DEBUG("alarm closed!\n");
+    // g_error_flag = 0;
+    return RET_OK;
+}
+
 int g_local_mcc_retry_flag = 0;
 
 // this callback will be executed on helperm's mainloop, so it will block mainloop less than 11s on worst scenario.
 void
-fibo_adapter_helperm_get_local_mccmnc_ready (MbimDevice   *device,
+fibo_adapter_helperm_control_get_local_mccmnc_ready (MbimDevice   *device,
                                  GAsyncResult *res,
                                  gpointer userdata)
 {
     g_autoptr(GError)                   error          =  NULL;
     g_autoptr(MbimMessage)              response       =  NULL;
-    gint                                ret            =  0;
+    gint                                ret            =  RET_ERROR;
     MbimProvider                        *out_provider  =  NULL;
 
     FIBO_LOG_DEBUG("enter!\n");
@@ -1641,7 +1822,7 @@ fibo_adapter_helperm_get_local_mccmnc_ready (MbimDevice   *device,
             if (out_provider)
                 mbim_provider_free(out_provider);
 
-            fibo_adapter_helperm_get_local_mccmnc();
+            fibo_adapter_helperm_get_local_mccmnc((GAsyncReadyCallback)fibo_adapter_helperm_control_get_local_mccmnc_ready, NULL);
         }
         else {
             FIBO_LOG_ERROR("reach max retry, SIM card init error!\n");
@@ -1667,7 +1848,7 @@ fibo_adapter_helperm_get_local_mccmnc_ready (MbimDevice   *device,
             if (out_provider)
                 mbim_provider_free(out_provider);
 
-            fibo_adapter_helperm_get_local_mccmnc();
+            fibo_adapter_helperm_get_local_mccmnc((GAsyncReadyCallback)fibo_adapter_helperm_control_get_local_mccmnc_ready, NULL);
         }
         else {
             FIBO_LOG_ERROR("reach max retry, SIM card init error!\n");
@@ -1680,7 +1861,7 @@ fibo_adapter_helperm_get_local_mccmnc_ready (MbimDevice   *device,
     }
     else {
         FIBO_LOG_DEBUG("get local mccmnc:%s\n", out_provider->provider_id);
-        fibo_adapter_send_control_message_to_dbus(CTL_MBIM_HOME_PROVIDER_IND, strlen(out_provider->provider_id), out_provider->provider_id);
+        fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_HOME_PROVIDER_IND, strlen(out_provider->provider_id), out_provider->provider_id);
     }
 
     if (out_provider)
@@ -1693,13 +1874,17 @@ fibo_adapter_helperm_get_local_mccmnc_ready (MbimDevice   *device,
 
 // this func should query home provider status and send mccmnc back to helperd.
 gint
-fibo_adapter_helperm_get_local_mccmnc(void)
+fibo_adapter_helperm_get_local_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata)
 {
     g_autoptr(MbimMessage)   request                              =  NULL;
-    gint                     ret                                  =  RET_ERROR;
     gint                     retry                                =  REQUEST_MAX_RETRY;
 
     FIBO_LOG_DEBUG("MBIM FLAG:%d\n", g_mbim_device_init_flag);
+
+    if (func_pointer == NULL) {
+        FIBO_LOG_DEBUG("NULL pointer!\n");
+        return RET_ERROR;
+    }
 
     while (!g_mbim_device_init_flag && retry >= 0) {
         FIBO_LOG_DEBUG("mbim device not ready! wait for 1s!\n");
@@ -1718,10 +1903,294 @@ fibo_adapter_helperm_get_local_mccmnc(void)
                          request,
                          5,
                          cancellable,
-                         (GAsyncReadyCallback)fibo_adapter_helperm_get_local_mccmnc_ready,
+                         func_pointer,
+                         userdata);
+
+    return RET_OK;
+}
+
+// this callback will be executed on helperm's mainloop.
+void
+fibo_adapter_helperm_control_get_network_mccmnc_ready (MbimDevice   *device,
+                                 GAsyncResult *res,
+                                 gpointer userdata)
+{
+    g_autoptr(GError)                   error          =  NULL;
+    g_autoptr(MbimMessage)              response       =  NULL;
+    gint                                ret            =  RET_ERROR;
+    MbimRegisterState                   register_state =  MBIM_REGISTER_STATE_UNKNOWN;
+    g_autofree gchar                    *provider_id   =  NULL;
+
+    FIBO_LOG_DEBUG("enter!\n");
+
+    response = mbim_device_command_finish (device, res, &error);
+
+    if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
+        return;
+    }
+
+    if (!mbim_message_register_state_response_parse (
+            response,
+            NULL, /* nw error */
+            &register_state,
+            NULL, /* register_mode */
+            NULL, /* available_data_classses */
+            NULL, /* current_cellular_class */
+            &provider_id,
+            NULL, /* provider_name */
+            NULL, /* roaming_text */
+            NULL, /* registration_flag */
+            &error)) {
+
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
+        return;
+    }
+
+    if (!provider_id) {
+        FIBO_LOG_DEBUG("register state: %s\n", mbim_register_state_get_string (register_state));
+        FIBO_LOG_DEBUG("Dont get valid roam mccmnc!\n");
+        return;
+    }
+
+    FIBO_LOG_DEBUG("provider id: %s\n", provider_id);
+    fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_REGISTER_STATE_IND, strlen(provider_id), provider_id);
+
+    return;
+}
+
+// this func should query register state status and send roam mccmnc back to helperd.
+gint
+fibo_adapter_helperm_get_network_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata)
+{
+
+    g_autoptr(MbimMessage)   request                              =  NULL;
+    gint                     retry                                =  REQUEST_MAX_RETRY;
+
+    FIBO_LOG_DEBUG("MBIM FLAG:%d\n", g_mbim_device_init_flag);
+
+    if (func_pointer == NULL) {
+        FIBO_LOG_DEBUG("NULL pointer!\n");
+        return RET_ERROR;
+    }
+
+    while (!g_mbim_device_init_flag && retry >= 0) {
+        FIBO_LOG_DEBUG("mbim device not ready! wait for 1s!\n");
+        g_usleep(1000 * 1000 * 1);
+        retry--;
+    }
+
+    if (retry < 0) {
+        FIBO_LOG_ERROR("Reach max retry, mbim device not ready!\n");
+        return RET_ERR_RESOURCE;
+    }
+
+    request = mbim_message_register_state_query_new (NULL);
+    // main thread deal with callback, sub thread will exit without any deal!
+    mbim_device_command (mbimdevice,
+                         request,
+                         5,
+                         cancellable,
+                         func_pointer,
+                         userdata);
+
+    return RET_OK;
+}
+
+// this callback will be executed on helperm's mainloop.
+void
+fibo_adapter_helperm_get_subscriber_ready_status_ready (MbimDevice   *device,
+                                 GAsyncResult *res,
+                                 gpointer userdata)
+{
+    g_autoptr(GError)                   error          =  NULL;
+    g_autoptr(MbimMessage)              response       =  NULL;
+    gint                                ret            =  RET_ERROR;
+    MbimSubscriberReadyState            ready_state    =  MBIM_SUBSCRIBER_READY_STATE_FAILURE;
+
+    FIBO_LOG_DEBUG("enter!\n");
+
+    response = mbim_device_command_finish (device, res, &error);
+
+    if (!response || !mbim_message_response_get_result (response, MBIM_MESSAGE_TYPE_COMMAND_DONE, &error)) {
+        FIBO_LOG_ERROR ("error: operation failed: %s\n", error->message);
+        return;
+    }
+
+    if (!mbim_message_subscriber_ready_status_response_parse (
+            response,
+            &ready_state,
+            NULL, /* subscriber_id */
+            NULL, /* sim_iccid */
+            NULL, /* ready_info */
+            NULL, /* telephone_numbers_count */
+            NULL, /* telephone number */
+            &error)) {
+        FIBO_LOG_ERROR ("error: couldn't parse response message: %s\n", error->message);
+        return;
+    }
+
+    switch (ready_state) {
+        case MBIM_SUBSCRIBER_READY_STATE_NO_ESIM_PROFILE:
+            FIBO_LOG_ERROR("Not support ESIM yet!\n");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_DEVICE_LOCKED:
+            FIBO_LOG_DEBUG("Duplicated ind, SIM card is locked!\n");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_INITIALIZED:
+            if (g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card was inserted before, abort to send signal!\n");
+                break;
+            }
+            g_sim_inserted_flag = TRUE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM inserted"), "SIM inserted");
+
+            // HOME PROVIDER not support indication, so here have to manually query.
+            fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_HOME_PROVIDER_QUERY, 0, NULL);
+            // if this func is called, means service reboot while module existed, give a chance to check network mccmnc to avoid missing indication.
+            fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_REGISTER_STATE_QUERY, 0, NULL);
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_NOT_INITIALIZED:
+            FIBO_LOG_ERROR("SIM card is initializing!\n");
+            if (g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card was inserted before, abort to send signal!\n");
+                break;
+            }
+            g_sim_inserted_flag = TRUE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM inserted"), "SIM inserted");
+            break;
+        case MBIM_SUBSCRIBER_READY_STATE_FAILURE:
+            FIBO_LOG_DEBUG("Failure on SIM card state! treat it as SIM card removed!\n");
+        case MBIM_SUBSCRIBER_READY_STATE_SIM_NOT_INSERTED:
+            if (!g_sim_inserted_flag) {
+                FIBO_LOG_DEBUG("SIM card not inserted at all, abort to send signal!\n");
+                break;
+            }
+
+            g_sim_inserted_flag = FALSE;
+            fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_SUBSCRIBER_READY_IND, strlen("SIM removed"), "SIM removed");
+            break;
+        default:
+            FIBO_LOG_ERROR("Unsupported SIM card ready state: %d!\n", ready_state);
+    }
+
+    return;
+}
+
+// this func should query subscriber ready status and send mccmnc back to helperd.
+gint
+fibo_adapter_helperm_get_subscriber_ready_status(void)
+{
+    g_autoptr(MbimMessage)   request                              =  NULL;
+    gint                     retry                                =  REQUEST_MAX_RETRY;
+
+    FIBO_LOG_DEBUG("MBIM FLAG:%d\n", g_mbim_device_init_flag);
+
+    while (!g_mbim_device_init_flag && retry >= 0) {
+        FIBO_LOG_DEBUG("mbim device not ready! wait for 1s!\n");
+        g_usleep(1000 * 1000 * 1);
+        retry--;
+    }
+
+    if (retry < 0) {
+        FIBO_LOG_ERROR("Reach max retry, mbim device not ready!\n");
+        return RET_ERR_RESOURCE;
+    }
+
+    request = mbim_message_subscriber_ready_status_query_new (NULL);
+    // main thread deal with callback, sub thread will exit without any deal!
+    mbim_device_command (mbimdevice,
+                         request,
+                         5,
+                         cancellable,
+                         (GAsyncReadyCallback)fibo_adapter_helperm_get_subscriber_ready_status_ready,
                          NULL);
 
     return RET_OK;
+}
+
+gint
+fibo_adapter_helperm_get_work_slot_info(GAsyncReadyCallback func_pointer, gpointer userdata)
+{
+    g_autoptr(MbimMessage)   request                              =  NULL;
+    gint                     retry                                =  REQUEST_MAX_RETRY;
+
+    FIBO_LOG_DEBUG("MBIM FLAG:%d\n", g_mbim_device_init_flag);
+
+    while (!g_mbim_device_init_flag && retry >= 0) {
+        FIBO_LOG_DEBUG("mbim device not ready! wait for 1s!\n");
+        g_usleep(1000 * 1000 * 1);
+        retry--;
+    }
+
+    if (retry < 0) {
+        FIBO_LOG_ERROR("Reach max retry, mbim device not ready!\n");
+        return RET_ERR_RESOURCE;
+    }
+
+    request = mbim_message_ms_basic_connect_extensions_device_slot_mappings_query_new(NULL);
+    // main thread deal with callback, sub thread will exit without any deal!
+    mbim_device_command (mbimdevice,
+                         request,
+                         5,
+                         cancellable,
+                         func_pointer,
+                         userdata);
+
+    return RET_OK;
+}
+
+gint
+fibo_adapter_helperm_switch_work_slot(GAsyncReadyCallback func_pointer, gpointer userdata)
+{
+    g_autoptr(MbimMessage)   request        =  NULL;
+    gint                     retry          =  REQUEST_MAX_RETRY;
+    gint64                   input_slot     =  RET_ERROR;
+    fibo_async_struct_type   *user_data     =  NULL;
+    g_autoptr(GPtrArray)     slot_array     =  NULL;
+    MbimSlot                *slot_index     =  NULL;
+
+    FIBO_LOG_DEBUG("MBIM FLAG:%d\n", g_mbim_device_init_flag);
+
+    user_data = (fibo_async_struct_type *)userdata;
+    if (!user_data) {
+        FIBO_LOG_ERROR ("NULL pointer!\n");
+        return RET_ERROR;
+    }
+
+    slot_array = g_ptr_array_new_with_free_func (g_free);
+
+    input_slot = g_ascii_strtoll (user_data->payload_str, NULL, 10);
+    if (input_slot < 0 || input_slot > 1) {
+        FIBO_LOG_ERROR ("Invalid slot:%ld!\n", input_slot);
+        return RET_ERROR;
+    }
+    slot_index = g_new (MbimSlot, 1);
+    slot_index->slot = (guint32) input_slot;
+    g_ptr_array_add (slot_array, slot_index);
+
+    while (!g_mbim_device_init_flag && retry >= 0) {
+        FIBO_LOG_DEBUG("mbim device not ready! wait for 1s!\n");
+        g_usleep(1000 * 1000 * 1);
+        retry--;
+    }
+
+    if (retry < 0) {
+        FIBO_LOG_ERROR("Reach max retry, mbim device not ready!\n");
+        return RET_ERR_RESOURCE;
+    }
+
+    request = mbim_message_ms_basic_connect_extensions_device_slot_mappings_set_new(slot_array->len, (const MbimSlot **)slot_array->pdata, NULL);
+    // main thread deal with callback, sub thread will exit without any deal!
+    mbim_device_command (mbimdevice,
+                         request,
+                         5,
+                         cancellable,
+                         func_pointer,
+                         userdata);
+
+    return RET_OK;
+
 }
 
 /*--------------------------------------Above are External Funcs-------------------------------------------------------*/

@@ -38,8 +38,12 @@ typedef enum log_level_t
     LOG_LEVEL_CRITICAL
 } log_level;
 
-bool should_output_log(log_level level);
-int cfg_log_set_level(log_level level);
+extern log_level glog_level;
+
+inline bool should_output_log(log_level level)
+{
+    return level >= glog_level;
+}
 
 #define CFG_LOG_OPEN() openlog("fibo_config", LOG_CONS | LOG_PID, LOG_USER);
 #define CFG_LOG_CLOSE() closelog();

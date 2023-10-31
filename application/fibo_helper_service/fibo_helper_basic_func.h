@@ -59,22 +59,24 @@ void     fibo_mbim_port_deinit(void);
 gint     fibo_get_helper_seq_id(gint seq);
 gint     fibo_helper_queue_init(void);
 
-gint     fibo_prase_sw_reboot(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
-void     fibo_prase_get_ap_version_ready(MbimDevice *device, GAsyncResult *res, gpointer serviceid);
-gint     fibo_prase_get_ap_version(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
+gint     fibo_parse_sw_reboot(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
+void     fibo_helperm_get_network_mccmnc_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+void     fibo_helperm_get_local_mccmnc_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+void     fibo_helperm_get_work_slot_id_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+gint     fibo_parse_mbim_request(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, char *req_cmd);
 
 void     fibo_resp_error_result_callback(MbimDevice *device, GAsyncResult *res, gpointer serviceid);
 gint     fibo_resp_error_result(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar * req_cmd);
 
-gint     fibo_prase_send_atcmd_ready(MbimDevice *device, GAsyncResult *res, gpointer user_data);
-gint     fibo_prase_send_req_atcmd(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
-gint     fibo_prase_send_set_atcmd(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
-gint     fibo_prase_get_fw_info(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
-gint     fibo_prase_get_fcc_status_ready(MbimDevice *device, GAsyncResult *res, gpointer user_data);
+gint     fibo_parse_send_atcmd_ready(MbimDevice *device, GAsyncResult *res, gpointer user_data);
+gint     fibo_parse_send_req_atcmd(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
+gint     fibo_parse_send_set_atcmd(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
+gint     fibo_parse_get_fw_info(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, gchar *req_cmd);
+gint     fibo_parse_get_fcc_status_ready(MbimDevice *device, GAsyncResult *res, gpointer user_data);
 gint     fibocom_get_port_command_ready (gchar   *resp_str);
 gint     fibocom_get_subsysid_ready(MbimDevice *device, GAsyncResult *res, gpointer user_data);
 gint     fibocom_edl_flash_ready(MbimDevice *device, GAsyncResult *res, gpointer userdata);
-gpointer fibocom_qdl_flash_command(gpointer payload);
+gpointer fibocom_qdl_flash_command(gpointer payload, int *qdl_success_flag);
 gpointer edl_flashing_command(void *data);
 
 gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_flag);

@@ -110,10 +110,10 @@ bool setParity(int fd, int databits, int stopbits, int parity) {
 
 std::string atSender(std::string at_command) {
   std::string at_result;
-  char temp[8 * 1024] = {0};
+  char temp[2 * 1024] = {0};
   int length = 0;
   fd_set fs_read;
-  struct timeval time{0, 1000 * 300};
+  struct timeval time{5, 0};
 
   FD_ZERO(&fs_read);
   FD_SET(serial_port_fd, &fs_read);
@@ -136,6 +136,10 @@ std::string atSender(std::string at_command) {
        if (len > 0) {
            length += len;
        }
+       if(strstr(temp,"OK") || strstr(temp,"ERROR"))
+       {
+           break;
+       }
   }
 
   if (strlen(temp) != 0) {
@@ -148,7 +152,7 @@ std::string atSender(std::string at_command) {
 }
 
 bool init(const std::string& path) {
-  std::string test_command = "at";
+//  std::string test_command = "at";
   // check file is exist
   if (access(path.c_str(), F_OK) != 0) {
     return false;
@@ -167,12 +171,13 @@ bool init(const std::string& path) {
     printf("Set parity failed]n");
     return false;
   }
-
+/*
   std::string res = atSender(test_command);
   if (res.find("OK") != res.npos) {
       //printf("AT INIT ERROR res:%s\n",res.c_str());
     return false;
   }
+*/
   return true;
 }
 

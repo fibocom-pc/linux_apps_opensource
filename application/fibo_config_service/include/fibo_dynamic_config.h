@@ -9,7 +9,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file cfg_log.c
+ * @file dynamic_config.h
  * @author ziqi.zhao@fibocom.com (zhaoziqi)
  * @brief 
  * @version 1.0
@@ -18,29 +18,31 @@
  * 
  **/
 
-#include "cfg_log.h"
-#include <stdbool.h>
 
-static log_level glog_level = LOG_LEVEL_INFO;
+#ifndef __DYNAMIC_CONFIG_H__
+#define __DYNAMIC_CONFIG_H__
+#include <sys/ipc.h>
+#include <sys/msg.h>
 
-bool should_output_log(log_level level)
+typedef enum
 {
-    return level >= glog_level;
-}
+    MCCMNC_CHANGE = 1,
+    DEVICE_MODE_CHANGE,
+} mesage_type;
 
-
-int cfg_log_set_level(log_level level)
+typedef struct msg_st_s
 {
-    if (level < LOG_LEVEL_DEBUG || level > LOG_LEVEL_ERR)
-    {
-        return -1;
-    }
-    glog_level = level;
+    long int msg_type;
+    char mccmnc[8];
+    device_mode_sensor_t device;
+} msg_st_t;
 
-    return 0;
-}
+void* dynamic_thread(void* arg);
 
-int cfg_log_get_level()
-{
-    return glog_level;
-}
+void* event_from_file_thread(void* arg);
+void* event_from_signal_thread(void* arg);
+
+bool msg_init(void);
+int get_msg_id(void);
+void dynamic_deinit(void);
+#endif

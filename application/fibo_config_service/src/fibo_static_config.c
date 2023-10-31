@@ -11,32 +11,31 @@
  * GNU General Public License for more details.
  * @file static_config.c
  * @author ziqi.zhao@fibocom.com (zhaoziqi)
- * @brief 
+ * @brief
  * @version 1.0
  * @date 2023-09-23
- * 
- * 
+ *
+ *
  **/
-
 
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include "cfg_log.h"
+#include "fibo_cfg_log.h"
 #include "fibo_parse_xml.h"
 #include "fibo_list.h"
 #include "fibo_config_parse.h"
-#include "static_config.h"
-#include "config_helper.h"
-
+#include "fibo_static_config.h"
+#include "fibo_config_helper.h"
 
 #define FIBO_STATIC_CONFIG_START "start_service"
 #define FIBO_STATIC_CONFIG_DEBUG_LEVEL "debug_level"
 #define FIBO_STATIC_CONFIG_DEVICE_MODE_GET "device_mode_get"
+#define FIBO_STATIC_CONFIG_SIM_SLOTS_SWITCH "sim_slots_switch"
 #define FIBO_STATIC_CONFIG_FCCLOCK_ENABLE "fcc_lock_enable"
 #define FIBO_STATIC_CONFIG_WDISABLE_ENABLE "wdisable_enable"
 #define FIBO_STATIC_CONFIG_GNSS_TYPE_ENABLE "gnss_enable"
-#define FIBO_STATIC_CONFIG_NET_TYPE_ENABLE "net_type_enable"
+#define FIBO_STATIC_CONFIG_NET_TYPE_SET "net_type_set"
 #define FIBO_STATIC_CONFIG_BAND_CONF_ENABLE "band_config_enable"
 #define FIBO_STATIC_CONFIG_CUSTOMIZATIONSOLUTIONTYPE "customizationsolutiontype"
 #define FIBO_STATIC_CONFIG_SARDOWNLOADTYPE "sardownloadtype"
@@ -56,9 +55,9 @@
 
 #define FIBO_REGION_MAPPING_VER "1.1.2"
 
-#define STATUS_IS_NO "0"
-#define STATUS_IS_HW "1"
-#define STATUS_IS_SW "2"
+#define STATUS_IS_NO "-1"
+#define STATUS_IS_HW "0"
+#define STATUS_IS_SW "1"
 
 #define SAR_STATUS_IS_HW "0"
 #define SAR_STATUS_IS_SW "1"
@@ -71,15 +70,23 @@
 #define STATUS_IS_ENABLE "1"
 #define STATUS_IS_DISABLE "0"
 
+#define LOAD_NET_TYPE_2G "0"
+#define LOAD_NET_TYPE_3G "1"
+#define LOAD_NET_TYPE_4G "2"
+
+#define DEFAULT_LOG_LEVEL INFO_LOG_LEVEL
+#define DEFAULT_SIM_SLOTS_1 "0"
+#define SIM_SLOTS_2 "1"
+#define DEFAULT_NET_TYPE LOAD_NET_TYPE_4G 
+
+#define DEVICE_MODE_SIGNAL 0
+#define DEVICE_MODE_FILE 1
+
+
 #define GET_CURRENT_CONFIG(cid, status, type)                                                               \
     do                                                                                                      \
     {                                                                                                       \
         mesg_info *response = NULL;                                                                         \
-        if (!get_dbus_connect_flg())                                                                        \
-        {                                                                                                   \
-            status = STATUS_DBUS_ERROR;                                                                     \
-            CFG_LOG_ERROR("dbus can not send message");                                                     \
-        }                                                                                                   \
         CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                                                  \
         if (send_message_get_response(cid, "", 0, &response))                                               \
         {                                                                                                   \
@@ -88,17 +95,17 @@
                 CFG_LOG_INFO("set cid:%d success!", cid);                                                   \
                 if (STATUS_QUERY == type)                                                                   \
                 {                                                                                           \
-                    if (0 == strncmp(response->payload, STATUS_IS_NO, strlen(STATUS_IS_NO)))                \
-                    {                                                                                       \
-                        status = STATUS_OFF;                                                                 \
-                    }                                                                                       \
-                    else if (0 == strncmp(response->payload, STATUS_IS_HW, strlen(STATUS_IS_HW)))           \
+                    if (0 == strncmp(response->payload, STATUS_IS_HW, strlen(STATUS_IS_HW)))                \
                     {                                                                                       \
                         status = STATUS_HW;                                                                 \
                     }                                                                                       \
                     else if (0 == strncmp(response->payload, STATUS_IS_SW, strlen(STATUS_IS_SW)))           \
                     {                                                                                       \
                         status = STATUS_SW;                                                                 \
+                    }                                                                                       \
+                    else if (0 == strncmp(response->payload, STATUS_IS_NO, strlen(STATUS_IS_NO)))           \
+                    {                                                                                       \
+                        status = STATUS_OFF;                                                                \
                     }                                                                                       \
                     else                                                                                    \
                     {                                                                                       \
@@ -125,7 +132,7 @@
             }                                                                                               \
             else                                                                                            \
             {                                                                                               \
-                status = GET_DATA_FAIL;                                                                     \
+                status = STATUS_UNKNOWN;                                                                    \
                 CFG_LOG_ERROR("set cid:%d fail!", cid);                                                     \
             }                                                                                               \
         }                                                                                                   \
@@ -142,40 +149,40 @@
     } while (0);
 
 // ex:get version
-#define GET_CURRENT_CONFIG_DATA(cid, status, type, rsppayload, rsp_len)         \
-    do                                                                          \
-    {                                                                           \
-        mesg_info *response = NULL;                                             \
-        if (!get_dbus_connect_flg())                                            \
-        {                                                                       \
-            status = STATUS_DBUS_ERROR;                                         \
-            CFG_LOG_ERROR("dbus can not send message");                         \
-        }                                                                       \
-        CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                      \
-        if (send_message_get_response(cid, "", 0, &response))                   \
-        {                                                                       \
-            if (DATA_QUERY == type)                                             \
-            {                                                                   \
-                status = GET_DATA_SUCCESS;                                      \
-                memcpy(rsppayload, response->payload, response->payload_lenth); \
-                rsp_len = response->payload_lenth;                              \
-            }                                                                   \
-            else                                                                \
-            {                                                                   \
-                status = GET_DATA_FAIL;                                         \
-                CFG_LOG_ERROR("set cid:%d fail!", cid);                         \
-            }                                                                   \
-        }                                                                       \
-        else                                                                    \
-        {                                                                       \
-            status = STATUS_UNKNOWN;                                            \
-            CFG_LOG_ERROR("send message error");                                \
-        }                                                                       \
-        if (NULL != response)                                                   \
-        {                                                                       \
-            free(response);                                                     \
-            response = NULL;                                                    \
-        }                                                                       \
+#define GET_CURRENT_CONFIG_DATA(cid, status, rsppayload, rsp_len)                   \
+    do                                                                              \
+    {                                                                               \
+        mesg_info *response = NULL;                                                 \
+        CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                          \
+        if (send_message_get_response(cid, "", 0, &response))                       \
+        {                                                                           \
+            if (GET_DATA_SUCCESS == response->rtcode)                               \
+            {                                                                       \
+                status = GET_DATA_SUCCESS;                                          \
+                rsppayload = malloc(response->payload_lenth + 1);                   \
+                if (NULL != rsppayload)                                             \
+                {                                                                   \
+                    memset(rsppayload, 0, response->payload_lenth + 1);             \
+                    memcpy(rsppayload, response->payload, response->payload_lenth); \
+                    rsp_len = response->payload_lenth;                              \
+                }                                                                   \
+            }                                                                       \
+            else                                                                    \
+            {                                                                       \
+                status = STATUS_UNKNOWN;                                            \
+                CFG_LOG_ERROR("set cid:%d fail!", cid);                             \
+            }                                                                       \
+        }                                                                           \
+        else                                                                        \
+        {                                                                           \
+            status = STATUS_UNKNOWN;                                                \
+            CFG_LOG_ERROR("send message error");                                    \
+        }                                                                           \
+        if (NULL != response)                                                       \
+        {                                                                           \
+            free(response);                                                         \
+            response = NULL;                                                        \
+        }                                                                           \
     } while (0);
 
 #define SET_STATIC_CONFIG(cid, payload, len, status)                                                                  \
@@ -183,11 +190,6 @@
     {                                                                                                                 \
         mesg_info *response = NULL;                                                                                   \
         CFG_LOG_DEBUG("set cid:%d payload:%s!", cid, payload)                                                         \
-        if (!get_dbus_connect_flg())                                                                                  \
-        {                                                                                                             \
-            status = STATUS_DBUS_ERROR;                                                                               \
-            CFG_LOG_ERROR("dbus can not send message");                                                               \
-        }                                                                                                             \
         if (send_message_get_response(cid, payload, len, &response))                                                  \
         {                                                                                                             \
             if (GET_DATA_SUCCESS == response->rtcode)                                                                 \
@@ -197,13 +199,13 @@
             }                                                                                                         \
             else                                                                                                      \
             {                                                                                                         \
-                status = GET_DATA_FAIL;                                                                               \
+                status = STATUS_UNKNOWN;                                                                              \
                 CFG_LOG_ERROR("set cid:%d fail!", cid);                                                               \
             }                                                                                                         \
         }                                                                                                             \
         else                                                                                                          \
         {                                                                                                             \
-            status = GET_DATA_FAIL;                                                                                   \
+            status = STATUS_UNKNOWN;                                                                                  \
             CFG_LOG_INFO("set cid:%d ,retcode:%d,error!", cid, ((response == NULL) ? UNKNOW_CODE : response->rtcode)) \
         }                                                                                                             \
         if (NULL != response)                                                                                         \
@@ -217,19 +219,23 @@ static struct list_head s_ini_list = {};
 static esim_disable_parse_t parse_data = {};
 static region_map_xml_parse_t region_map_data = {};
 static devicemode_static_xml_parse_t static_parse_data = {};
+log_level glog_level = LOG_LEVEL_INFO;
 
-
-
-static bool fibo_compaer_config_item(config_parse_t *list_data, char *config_item)
+static bool fibo_compaer_config_item(config_parse_t *list_data, char *config_item, char min_value, char max_value)
 {
     config_parse_t *cur = NULL;
     list_for_each_entry(cur, &s_ini_list, list)
     {
         if (0 == strncmp(cur->key, config_item, strlen(config_item)))
         {
-            strncpy(list_data->key, cur->key, strlen(cur->key));
-            list_data->keyval = cur->keyval;
-            return true;
+            if(min_value <= cur->keyval && max_value >= cur->keyval)
+            {
+                strncpy(list_data->key, cur->key, strlen(cur->key));
+                list_data->keyval = cur->keyval;
+                return true;
+            }
+            break;
+            
         }
     }
     return false;
@@ -239,26 +245,39 @@ int fibo_get_start_state(void)
 {
     config_parse_t list_data = {};
 
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_START))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_START,SERVICE_STOP,SERVICE_RUN))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         return list_data.keyval;
     }
-    
+
     return 1;
+}
+
+static int cfg_log_set_level(log_level level)
+{
+    if (level < LOG_LEVEL_DEBUG || level > LOG_LEVEL_CRITICAL)
+    {
+        CFG_LOG_ERROR("set log level errr %d", level);
+        return -1;
+    }
+    glog_level = level;
+
+    return 0;
 }
 
 static bool fibo_set_debug_level(void)
 {
     config_parse_t list_data = {};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_DEBUG_LEVEL))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_DEBUG_LEVEL,DEBUG_LOG_LEVEL,CRITICAL_LOG_LEVEL))
     {
         cfg_log_set_level((log_level)list_data.keyval);
-        CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
+        CFG_LOG_DEBUG("set log level OK level:%d", glog_level);
     }
     else
     {
-        CFG_LOG_ERROR("get config value failed,not setting");
+        CFG_LOG_INFO("get config value failed,set default log level");
+        cfg_log_set_level(DEFAULT_LOG_LEVEL);
         return false;
     }
     return true;
@@ -267,23 +286,92 @@ static bool fibo_set_debug_level(void)
 int fibo_device_mode_get(void)
 {
     config_parse_t list_data = {};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_DEVICE_MODE_GET))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_DEVICE_MODE_GET,DEVICE_MODE_SIGNAL,DEVICE_MODE_FILE))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         return list_data.keyval;
     }
 
-    CFG_LOG_ERROR("get config value failed,use default config");
-    return 1;
+    CFG_LOG_INFO("get config value failed,use default config");
+    return DEVICE_MODE_FILE;
+}
+
+static bool fibo_set_sim_slots_switch(void)
+{
+    config_parse_t list_data = {0};
+    char status = 0;
+
+    GET_CURRENT_CONFIG(GET_SIM_SLOTS_STATUS, status, TYPE_QUERY);
+    if (STATUS_UNKNOWN == status)
+    {
+        CFG_LOG_ERROR("GET_SIM_SLOTS_STATUS error!");
+        return false;
+    }
+    CFG_LOG_INFO("GET_SIM_SLOTS_STATUS status = %d", status);
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SIM_SLOTS_SWITCH,SIM_SLOTS_FUNC_OFF,SIM_SLOTS_SWITCH_2))
+    {
+        if(list_data.keyval == SIM_SLOTS_FUNC_OFF)
+        {
+            CFG_LOG_INFO("SIM_SLOTS_SWITCH do nothing");
+            return true;
+        }
+        if (status == list_data.keyval)
+        {
+            CFG_LOG_INFO("sim_slots_status correct ,do nothing");
+            return true;
+        }
+        else
+        {
+            status = 0;
+            if (list_data.keyval == SIM_SLOTS_SWITCH_1)
+            {
+                SET_STATIC_CONFIG(SET_SIM_SLOTS, DEFAULT_SIM_SLOTS_1, strlen(DEFAULT_SIM_SLOTS_1), status);
+            }
+            else if (list_data.keyval == SIM_SLOTS_SWITCH_2)
+            {
+                SET_STATIC_CONFIG(SET_SIM_SLOTS, SIM_SLOTS_2, strlen(SIM_SLOTS_2), status);
+            }
+            if (STATUS_UNKNOWN == status)
+            {
+                CFG_LOG_ERROR("setting error");
+                return false;
+            }
+        }
+    }
+    else
+    {
+        CFG_LOG_INFO("get config value failed, set default value");
+        status = 0;
+        SET_STATIC_CONFIG(SET_SIM_SLOTS, DEFAULT_SIM_SLOTS_1, strlen(DEFAULT_SIM_SLOTS_1), status);
+        if (STATUS_UNKNOWN == status)
+        {
+            CFG_LOG_ERROR("setting error");
+            return false;
+        }
+    }
+    // reset modem disable esim take effect
+    CFG_LOG_INFO("SET_SIM_SLOTS ok  restart modem");
+    SET_STATIC_CONFIG(RESET_MODEM_SW, "", 0, status);
+    if (STATUS_UNKNOWN == status)
+    {
+        CFG_LOG_ERROR("setting error");
+        return false;
+    }
+    return true;
 }
 
 static bool fibo_set_fcclock_enable(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_FCCLOCK_ENABLE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_FCCLOCK_ENABLE,STATUS_FUNC_OFF,STATUS_ENABLE))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         // do something
+        if(STATUS_FUNC_OFF == list_data.keyval)
+        {
+            CFG_LOG_INFO("FCCLOCK do nothing");
+            return true;
+        }
     }
     else
     {
@@ -301,10 +389,16 @@ static bool fibo_set_wdisable_enable(void)
     GET_CURRENT_CONFIG(GET_WDISABLE_STATUS, status, TYPE_QUERY);
     if (STATUS_UNKNOWN == status)
     {
+        CFG_LOG_ERROR("GET_WDISABLE_STATUS error!");
         return false;
     }
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_WDISABLE_ENABLE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_WDISABLE_ENABLE,STATUS_FUNC_OFF,STATUS_ENABLE))
     {
+        if(STATUS_FUNC_OFF == list_data.keyval)
+        {
+            CFG_LOG_INFO("WDISABLE do nothing");
+            return true;
+        }
         if (status == list_data.keyval)
         {
             CFG_LOG_INFO("wdisable status correct ,do nothing");
@@ -312,7 +406,7 @@ static bool fibo_set_wdisable_enable(void)
         else
         {
             status = 0;
-            if (list_data.keyval == 0)
+            if (list_data.keyval == STATUS_DISABLE)
             {
                 SET_STATIC_CONFIG(SET_WDISABLE_ENABLE, STATUS_IS_DISABLE, strlen(STATUS_IS_DISABLE), status);
             }
@@ -343,10 +437,16 @@ static bool fibo_set_gnss_enable(void)
     GET_CURRENT_CONFIG(GET_GNSS_STATUS, status, TYPE_QUERY);
     if (STATUS_UNKNOWN == status)
     {
+        CFG_LOG_ERROR("GET_GNSS_STATUS error");
         return false;
     }
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_GNSS_TYPE_ENABLE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_GNSS_TYPE_ENABLE,STATUS_FUNC_OFF,STATUS_ENABLE))
     {
+        if(STATUS_FUNC_OFF == list_data.keyval)
+        {
+            CFG_LOG_INFO("GNSS do nothing");
+            return true;
+        }
         if (status == list_data.keyval)
         {
             CFG_LOG_INFO("gnss status correct ,do nothing");
@@ -354,7 +454,7 @@ static bool fibo_set_gnss_enable(void)
         else
         {
             status = 0;
-            if (list_data.keyval == 0)
+            if (list_data.keyval == STATUS_DISABLE)
             {
                 SET_STATIC_CONFIG(SET_GNSS_ENABLE, STATUS_IS_DISABLE, strlen(STATUS_IS_DISABLE), status);
             }
@@ -388,26 +488,34 @@ static bool fibo_set_bodysar_type(void)
         CFG_LOG_INFO("set sar type is tasar");
         return true;
     }
-    GET_CURRENT_CONFIG(GET_BODYSAR_CTRL_MODE, status, TYPE_QUERY);
+
+    SET_STATIC_CONFIG(SET_BODYSAR_ENABLE, STATUS_IS_ENABLE, 1, status);
     if (STATUS_UNKNOWN == status)
     {
+        CFG_LOG_ERROR("SET_TASAR_ENABLE error");
         return false;
     }
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_BODYSARSTATE))
+
+    GET_CURRENT_CONFIG(GET_BODYSAR_CTRL_MODE, status, STATUS_QUERY);
+    if (STATUS_UNKNOWN == status)
     {
-        value = list_data.keyval - 1;
-        if (status == value)
+        CFG_LOG_ERROR("GET_BODYSAR_CTRL_MODE error");
+        return false;
+    }
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_BODYSARSTATE,STATUS_HW,STATUS_SW))
+    {
+        if (status == list_data.keyval)
         {
             CFG_LOG_INFO("bodysar status correct ,do nothing");
         }
         else
         {
             status = 0;
-            if (value == 0)
+            if (list_data.keyval == STATUS_HW)
             {
                 SET_STATIC_CONFIG(SET_BODYSAR_CTRL_MODE, SAR_STATUS_IS_HW, strlen(SAR_STATUS_IS_HW), status);
             }
-            else if (value == 1)
+            else if (list_data.keyval == STATUS_SW)
             {
                 SET_STATIC_CONFIG(SET_BODYSAR_CTRL_MODE, SAR_STATUS_IS_SW, strlen(SAR_STATUS_IS_SW), status);
             }
@@ -437,26 +545,34 @@ static bool fibo_set_tasar_type(void)
         CFG_LOG_INFO("set sar type is bodysar");
         return true;
     }
-    GET_CURRENT_CONFIG(GET_TASAR_CTRL_MODE, status, TYPE_QUERY);
+
+    SET_STATIC_CONFIG(SET_TASAR_ENABLE, STATUS_IS_ENABLE, 1, status);
     if (STATUS_UNKNOWN == status)
     {
+        CFG_LOG_ERROR("SET_TASAR_ENABLE error");
         return false;
     }
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_TASARSTATE))
+
+    GET_CURRENT_CONFIG(GET_TASAR_CTRL_MODE, status, STATUS_QUERY);
+    if (STATUS_UNKNOWN == status)
     {
-        value = list_data.keyval - 1;
-        if (status == value)
+        CFG_LOG_ERROR("GET_TASAR_CTRL_MODE error");
+        return false;
+    }
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_TASARSTATE,STATUS_HW,STATUS_SW))
+    {
+        if (status == list_data.keyval)
         {
             CFG_LOG_INFO("wdisable status correct ,do nothing");
         }
         else
         {
             status = 0;
-            if (value == 0)
+            if (list_data.keyval == STATUS_HW)
             {
                 SET_STATIC_CONFIG(SET_TASAR_CTRL_MODE, SAR_STATUS_IS_HW, strlen(SAR_STATUS_IS_HW), status);
             }
-            else if (value == 1)
+            else if (list_data.keyval == STATUS_SW)
             {
                 SET_STATIC_CONFIG(SET_TASAR_CTRL_MODE, SAR_STATUS_IS_SW, strlen(SAR_STATUS_IS_SW), status);
             }
@@ -481,9 +597,9 @@ static bool fibo_set_antenna_type(void)
     config_parse_t list_data = {0};
     char value = 0;
 
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_ANTURNERSTATE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_ANTURNERSTATE,STATUS_OFF,STATUS_SW))
     {
-        if(0 == list_data.keyval)
+        if (STATUS_OFF == list_data.keyval)
         {
             SET_STATIC_CONFIG(SET_ANTENNA_ENABLE, ANTENNA_STATUS_IS_OFF, strlen(ANTENNA_STATUS_IS_OFF), status);
             if (STATUS_UNKNOWN == status)
@@ -499,7 +615,7 @@ static bool fibo_set_antenna_type(void)
             GET_CURRENT_CONFIG(GET_ANTENNA_STATUS, status, TYPE_QUERY);
             if (STATUS_UNKNOWN == status)
             {
-                CFG_LOG_ERROR("set config value failed");
+                CFG_LOG_ERROR("GET_ANTENNA_STATUS error");
                 return false;
             }
             else if (STATUS_OFF == status)
@@ -507,45 +623,36 @@ static bool fibo_set_antenna_type(void)
                 SET_STATIC_CONFIG(SET_ANTENNA_ENABLE, ANTENNA_STATUS_IS_NO, strlen(ANTENNA_STATUS_IS_NO), status);
             }
 
-            value = list_data.keyval - 1;
             GET_CURRENT_CONFIG(GET_ANTENNA_CTRL_MODE, status, STATUS_QUERY);
             if (STATUS_UNKNOWN == status)
             {
-                CFG_LOG_ERROR("set antenna value failed");
+                CFG_LOG_ERROR("GET_ANTENNA_CTRL_MODE error");
                 return false;
             }
 
-            if (status == value)
+            if (status == list_data.keyval)
             {
                 CFG_LOG_INFO("antenna status correct ,do nothing");
                 return true;
             }
             status = 0;
-            if (value == 0)
+            if (list_data.keyval == STATUS_HW)
             {
                 SET_STATIC_CONFIG(SET_ANTENNA_CTRL_MODE, ANTENNA_STATUS_IS_HW, strlen(ANTENNA_STATUS_IS_HW), status);
             }
-            else if (value == 1)
+            else if (list_data.keyval == STATUS_SW)
             {
                 SET_STATIC_CONFIG(SET_ANTENNA_CTRL_MODE, ANTENNA_STATUS_IS_SW, strlen(ANTENNA_STATUS_IS_SW), status);
+            }
+            else if (list_data.keyval == STATUS_OFF)
+            {
+                SET_STATIC_CONFIG(SET_ANTENNA_ENABLE, STATUS_IS_DISABLE, 1, status);
             }
             if (STATUS_UNKNOWN == status)
             {
                 CFG_LOG_ERROR("setting error");
                 return false;
             }
-        }
-    }
-    
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_ANTURNERSTATE))
-    {
-        if (status == list_data.keyval)
-        {
-            CFG_LOG_INFO("antenna status correct ,do nothing");
-        }
-        else
-        {
-           
         }
     }
     else
@@ -559,7 +666,7 @@ static bool fibo_set_antenna_type(void)
 static bool fibo_set_band_config_enable(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_BAND_CONF_ENABLE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_BAND_CONF_ENABLE,STATUS_FUNC_OFF,STATUS_ENABLE))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         // do something
@@ -572,18 +679,55 @@ static bool fibo_set_band_config_enable(void)
     return true;
 }
 
-static bool fibo_set_net_type_enable(void)
+
+static bool fibo_set_net_type(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_NET_TYPE_ENABLE))
+    char status = 0;
+    char *rsp_data = NULL;
+    int payload_len = 0;
+
+    return true;
+    GET_CURRENT_CONFIG_DATA(GET_NET_WORK_TYPE, status, rsp_data, payload_len);
+    if (STATUS_UNKNOWN == status)
     {
-        CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
-        // do something
+        CFG_LOG_ERROR("GET_NET_WORK_TYPE error!");
+        return false;
+    }
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_NET_TYPE_SET,NET_TYPE_FUNC_OFF,NET_TYPE_5G))
+    {
+        if(STATUS_FUNC_OFF == list_data.keyval)
+        {
+            CFG_LOG_INFO("NET_TYPE do nothing");
+            return true;
+        }
+        if (status == list_data.keyval)
+        {
+            CFG_LOG_INFO("wdisable status correct ,do nothing");
+        }
+        else
+        {
+            status = 0;
+            char data[4] ={0};
+            sprintf(data,"%d",list_data.keyval);
+            SET_STATIC_CONFIG(SET_NET_WORK_TYPE, data, strlen(data), status);
+            if (STATUS_UNKNOWN == status)
+            {
+                CFG_LOG_ERROR("setting error");
+                return false;
+            }
+        }
     }
     else
     {
-        CFG_LOG_ERROR("get config value failed,not setting");
-        return false;
+        CFG_LOG_INFO("get config value failed,set default value");
+        /* set default net type 4G */
+        SET_STATIC_CONFIG(SET_NET_WORK_TYPE, DEFAULT_NET_TYPE, strlen(DEFAULT_NET_TYPE), status);
+        if (STATUS_UNKNOWN == status)
+        {
+            CFG_LOG_ERROR("setting error");
+            return false;
+        }
     }
     return true;
 }
@@ -592,7 +736,7 @@ static bool fibo_set_net_type_enable(void)
 custom_solucion_type fibo_get_customizationsolutiontype(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_CUSTOMIZATIONSOLUTIONTYPE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_CUSTOMIZATIONSOLUTIONTYPE,SOLTION_DISABLE,SOLTION_XML))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         return (custom_solucion_type)list_data.keyval;
@@ -601,33 +745,33 @@ custom_solucion_type fibo_get_customizationsolutiontype(void)
     return SLUCTION_TYPE_UNKNOWN;
 }
 
-sar_down_type get_sardownloadtype(void)
+sar_download_type get_sardownloadtype(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SARDOWNLOADTYPE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SARDOWNLOADTYPE,DOWN_LOAD_FLASH,DOWN_LOAD_AT))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
-        return (sar_down_type)list_data.keyval;
+        return (sar_download_type)list_data.keyval;
     }
     CFG_LOG_ERROR("get config value failed,not setting");
-    return SAR_DOWN_TYPE_UNKNOWN;
+    return DOWN_LOAD_UNKNOWN;
 }
 
 sar_type fibo_get_sartype(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SATTYPE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SATTYPE,SAR_TYPE_NOTHING,SAR_TYPE_TASAR))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         return (sar_type)list_data.keyval;
     }
-    return SAR_DOWN_TYPE_UNKNOWN;
+    return SAR_TYPE_UNKNOWN;
 }
 
 sar_map_type fibo_get_sarmaptype(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SARMAPTYPE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_SARMAPTYPE,SARMAP_TYPE_NO,SARMAP_TYPE_5))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
         return (sar_map_type)list_data.keyval;
@@ -636,43 +780,23 @@ sar_map_type fibo_get_sarmaptype(void)
     return SAR_MAP_TYPE_UNKNOWN;
 }
 
-antenna_type fibo_get_antturnerstate(void)
+switch_status fibo_get_antturnerstate(void)
 {
     config_parse_t list_data = {0};
-    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_ANTURNERSTATE))
+    if (fibo_compaer_config_item(&list_data, FIBO_STATIC_CONFIG_ANTURNERSTATE,STATUS_OFF,STATUS_SW))
     {
         CFG_LOG_DEBUG("get config value success,key=%s ,value=%d", list_data.key, list_data.keyval);
-        return (antenna_type)list_data.keyval;
+        return (switch_status)list_data.keyval;
     }
 
     CFG_LOG_ERROR("get config value failed,not setting");
-    return ANTENNA_TYPE_UNKNOWN;
+    return STATUS_UNKNOWN;
 }
 
-static bool fibo_inifile_parse(struct list_head *list)
-{
-    char file_path[256] = {0};
-
-    sprintf(file_path, "%s/%s", FIBO_APP_CONFIG_INI_PATH, FIBO_APP_CONFIG_INI);
-    if (access(file_path, F_OK))
-    {
-        sprintf(file_path, "%s/%s", "./", FIBO_APP_CONFIG_INI);
-        if (access(file_path, F_OK))
-        {
-            CFG_LOG_ERROR("file:%s,file is not exeist", file_path);
-            return false;
-        }
-        // CFG_LOG_ERROR("file:%s,file is not exeist", file_path);
-        // return false;
-    }
-    fibo_config_parse(file_path, list);
-
-    // list_for_each_entry(cur, list,list)
-    // {
-    //     printf("key:%s,keyMAIN:%d\n",cur->key,cur->keyval);
-    // }
-    return true;
-}
+// list_for_each_entry(cur, list,list)
+// {
+//     printf("key:%s,keyMAIN:%d\n",cur->key,cur->keyval);
+// }
 
 static bool fibo_disable_esim_parse(esim_disable_parse_t *parse_data)
 {
@@ -731,7 +855,7 @@ char *get_region_regulatory(char *mcc)
             regulatory = select_rule->regulatory;
             continue;
         }
-        if (0 == strcmp(mcc, select_rule->mcc))
+        if (0 == strncmp(mcc, select_rule->mcc, strlen(select_rule->mcc)))
         {
             regulatory = select_rule->regulatory;
             break;
@@ -951,19 +1075,60 @@ static bool fibo_parse_devicemode_mapping_test(void)
 static bool fibo_get_sar_index_test(void)
 {
     char index = 0;
-    fibo_get_sar_index(SARMAP_TYPE_1, "default", "CE", 1, 0, 1, 1, &index);
+    sar_index_para_t input_data = {0};
+
+    input_data.sar_map_type = SARMAP_TYPE_1;
+    strncpy(input_data.wwanconfigid, "default", strlen("default"));
+    input_data.standard = "CE";
+    input_data.device.device_mode = 1;
+    input_data.device.sensor1 = 0;
+    input_data.device.sensor2 = 1;
+    input_data.device.sensor3 = 1;
+
+    fibo_get_sar_index(&input_data, &index);
     CFG_LOG_DEBUG("list sar_index:%d", (int)index);
 
-    fibo_get_sar_index(SARMAP_TYPE_2, "default", "CE", 1, 0, 1, 1, &index);
+    memset(&input_data, 0, sizeof(input_data));
+    input_data.sar_map_type = SARMAP_TYPE_2;
+    strncpy(input_data.wwanconfigid, "default", strlen("default"));
+    input_data.standard = "CE";
+    input_data.device.device_mode = 1;
+    input_data.device.sensor1 = 0;
+    input_data.device.sensor2 = 1;
+    input_data.device.sensor3 = 1;
+    fibo_get_sar_index(&input_data, &index);
+
+    memset(&input_data, 0, sizeof(input_data));
+    input_data.sar_map_type = SARMAP_TYPE_3;
+    strncpy(input_data.wwanconfigid, "default", strlen("default"));
+    input_data.standard = "CE";
+    input_data.device.device_mode = 1;
+    input_data.device.sensor1 = 0;
+    input_data.device.sensor2 = 1;
+    input_data.device.sensor3 = 1;
+    fibo_get_sar_index(&input_data, &index);
     CFG_LOG_DEBUG("list sar_index:%d", (int)index);
 
-    fibo_get_sar_index(SARMAP_TYPE_3, "default", "CE", 1, 0, 1, 1, &index);
+    memset(&input_data, 0, sizeof(input_data));
+    input_data.sar_map_type = SARMAP_TYPE_4;
+    strncpy(input_data.wwanconfigid, "default", strlen("default"));
+    input_data.standard = "CE";
+    input_data.device.device_mode = 1;
+    input_data.device.sensor1 = 0;
+    input_data.device.sensor2 = 1;
+    input_data.device.sensor3 = 1;
+    fibo_get_sar_index(&input_data, &index);
     CFG_LOG_DEBUG("list sar_index:%d", (int)index);
 
-    fibo_get_sar_index(SARMAP_TYPE_4, "default", "CE", 1, 0, 1, 1, &index);
-    CFG_LOG_DEBUG("list sar_index:%d", (int)index);
-
-    fibo_get_sar_index(SARMAP_TYPE_5, "5000.0001.0000.0000", "CE", 1, 0, 1, 1, &index);
+    memset(&input_data, 0, sizeof(input_data));
+    input_data.sar_map_type = SARMAP_TYPE_5;
+    strncpy(input_data.wwanconfigid, "5000.0001.0000.0000", strlen("5000.0001.0000.0000"));
+    input_data.standard = "CE";
+    input_data.device.device_mode = 1;
+    input_data.device.sensor1 = 0;
+    input_data.device.sensor2 = 1;
+    input_data.device.sensor3 = 1;
+    fibo_get_sar_index(&input_data, &index);
     CFG_LOG_DEBUG("list sar_index:%d", (int)index);
 }
 
@@ -1070,8 +1235,7 @@ bool fibo_get_antenna_index(char *wwanconfigid, char device_mode, char *index)
     return ret;
 }
 
-bool fibo_get_sar_index(sar_map_type sar_map_type, char *wwanconfigid, char *standard, char device_mode,
-                        char sensor1, char sensor2, char sensor3, char *index)
+bool fibo_get_sar_index(sar_index_para_t *input_data, char *index)
 {
     char file_path[256] = {0};
     bool ret = false;
@@ -1092,58 +1256,58 @@ bool fibo_get_sar_index(sar_map_type sar_map_type, char *wwanconfigid, char *sta
             return false;
         }
     }
-    if (SARMAP_TYPE_1 == sar_map_type)
+    if (SARMAP_TYPE_1 == input_data->sar_map_type)
     {
         fibo_sar_xml1_t xmldata = {0};
 
-        xmldata.standard = standard;
+        xmldata.standard = input_data->standard;
         ret = fibo_parse_devicemode_index_data(file_path, wwanconfigid, SAR_MAP_TYPE_1, (void *)&xmldata);
         CFG_LOG_DEBUG("list xmldata:%d", (int)xmldata.index);
         *index = xmldata.index;
     }
-    else if (SARMAP_TYPE_2 == sar_map_type)
+    else if (SARMAP_TYPE_2 == input_data->sar_map_type)
     {
         fibo_sar_xml2_t xmldata = {0};
 
-        xmldata.standard = standard;
-        xmldata.device_mode = device_mode;
+        xmldata.standard = input_data->standard;
+        xmldata.device_mode = input_data->device.device_mode;
 
         ret = fibo_parse_devicemode_index_data(file_path, wwanconfigid, SAR_MAP_TYPE_2, (void *)&xmldata);
         CFG_LOG_DEBUG("list xmldata:%d", (int)xmldata.index);
         *index = xmldata.index;
     }
-    else if (SARMAP_TYPE_3 == sar_map_type)
+    else if (SARMAP_TYPE_3 == input_data->sar_map_type)
     {
         fibo_sar_xml3_t xmldata = {0};
 
-        xmldata.standard = standard;
-        xmldata.device_mode = device_mode;
-        xmldata.sensor1 = sensor1;
+        xmldata.standard = input_data->standard;
+        xmldata.device_mode = input_data->device.device_mode;
+        xmldata.sensor1 = input_data->device.sensor1;
         ret = fibo_parse_devicemode_index_data(file_path, wwanconfigid, SAR_MAP_TYPE_3, (void *)&xmldata);
         CFG_LOG_DEBUG("list xmldata:%d", (int)xmldata.index);
         *index = xmldata.index;
     }
-    else if (SARMAP_TYPE_4 == sar_map_type)
+    else if (SARMAP_TYPE_4 == input_data->sar_map_type)
     {
         fibo_sar_xml4_t xmldata = {0};
 
-        xmldata.standard = standard;
-        xmldata.device_mode = device_mode;
-        xmldata.sensor1 = sensor1;
-        xmldata.sensor2 = sensor2;
+        xmldata.standard = input_data->standard;
+        xmldata.device_mode = input_data->device.device_mode;
+        xmldata.sensor1 = input_data->device.sensor1;
+        xmldata.sensor2 = input_data->device.sensor2;
         ret = fibo_parse_devicemode_index_data(file_path, wwanconfigid, SAR_MAP_TYPE_4, (void *)&xmldata);
         CFG_LOG_DEBUG("list xmldata:%d", (int)xmldata.index);
         *index = xmldata.index;
     }
-    else if (SARMAP_TYPE_5 == sar_map_type)
+    else if (SARMAP_TYPE_5 == input_data->sar_map_type)
     {
         fibo_sar_xml5_t xmldata = {0};
 
-        xmldata.standard = standard;
-        xmldata.device_mode = device_mode;
-        xmldata.sensor1 = sensor1;
-        xmldata.sensor2 = sensor2;
-        xmldata.sensor3 = sensor3;
+        xmldata.standard = input_data->standard;
+        xmldata.device_mode = input_data->device.device_mode;
+        xmldata.sensor1 = input_data->device.sensor1;
+        xmldata.sensor2 = input_data->device.sensor2;
+        xmldata.sensor3 = input_data->device.sensor3;
         ret = fibo_parse_devicemode_index_data(file_path, wwanconfigid, SAR_MAP_TYPE_5, (void *)&xmldata);
         CFG_LOG_DEBUG("list xmldata:%d", (int)xmldata.index);
         *index = xmldata.index;
@@ -1165,26 +1329,25 @@ bool fibo_set_disableesim_for_sku(void)
         return false;
     }
 
-    GET_CURRENT_CONFIG(GET_DISABLE_ESIM_STATUS, status, STATUS_QUERY);
+    GET_CURRENT_CONFIG(GET_DISABLE_ESIM_STATUS, status, TYPE_QUERY);
     if (STATUS_UNKNOWN == status)
     {
-        CFG_LOG_ERROR("setting error");
+        CFG_LOG_ERROR("GET_DISABLE_ESIM_STATUS error");
         return false;
     }
-    else if (0 == status)
+    else if (STATUS_DISABLE == status)
     {
         CFG_LOG_INFO("Current state is esim enable,no need action!");
         return true;
     }
-    else if (1 == status)
+    else if (STATUS_ENABLE == status)
     {
-        CFG_LOG_INFO("Current state is esim disabled(by modem),no need action!");
-        return true;
+        CFG_LOG_INFO("Current state is esim enabled");
     }
-    
+
     list_for_each_entry(sku_black, &parse_data.sku_black_list, list)
     {
-        if (0 == strncmp(current_sku, sku_black->sku,strlen(current_sku)))
+        if (0 == strncmp(current_sku, sku_black->sku, strlen(current_sku)))
         {
             sku_disable_esim = true;
             CFG_LOG_INFO("find this SKU in black list disable esim,current_sku:%s", current_sku);
@@ -1194,7 +1357,7 @@ bool fibo_set_disableesim_for_sku(void)
                 CFG_LOG_ERROR("setting error");
                 return false;
             }
-            //reset modem disable esim take effect
+            // reset modem disable esim take effect
             SET_STATIC_CONFIG(RESET_MODEM_SW, "", 0, status);
             if (STATUS_UNKNOWN == status)
             {
@@ -1222,18 +1385,17 @@ bool fibo_set_disableesim_for_mcc(void)
     GET_CURRENT_CONFIG(GET_DISABLE_ESIM_STATUS, status, STATUS_QUERY);
     if (STATUS_UNKNOWN == status)
     {
-        CFG_LOG_ERROR("setting error");
+        CFG_LOG_ERROR("GET_DISABLE_ESIM_STATUS error");
         return false;
     }
-    else if (0 == status)
+    else if (STATUS_DISABLE == status)
     {
-        CFG_LOG_INFO("Current state is esim enable,no need action!");
+        CFG_LOG_INFO("Current state is esim disableenable,no need action!");
         return true;
     }
-    else if (1 == status)
+    else if (STATUS_ENABLE == status)
     {
-        CFG_LOG_INFO("Current state is esim disabled(by modem),no need action!");
-        return true;
+        CFG_LOG_INFO("Current state is esim enable abled");
     }
 
     current_mcc = fibo_get_mcc_value();
@@ -1248,13 +1410,14 @@ bool fibo_set_disableesim_for_mcc(void)
                 CFG_LOG_ERROR("setting error");
                 return false;
             }
-            //reset modem disable esim take effect
+            // reset modem disable esim take effect
             SET_STATIC_CONFIG(RESET_MODEM_SW, "", 0, status);
             if (STATUS_UNKNOWN == status)
             {
                 CFG_LOG_ERROR("setting error");
                 return false;
             }
+            break;
         }
     }
     return true;
@@ -1265,16 +1428,17 @@ bool fibo_get_config_and_set(void)
     int result = 0;
     result += fibo_set_debug_level();
     result += fibo_set_fcclock_enable();
+    result += fibo_set_sim_slots_switch();
     result += fibo_set_wdisable_enable();
     result += fibo_set_gnss_enable();
     result += fibo_set_band_config_enable();
-    result += fibo_set_net_type_enable();
+    result += fibo_set_net_type();
     result += fibo_set_bodysar_type();
     result += fibo_set_tasar_type();
     result += fibo_set_antenna_type();
     result += fibo_set_disableesim_for_sku();
     CFG_LOG_DEBUG("result = %d", result);
-    if (result == 10)
+    if (result == 11)
     {
         CFG_LOG_DEBUG("set static config successfully!");
         return true;
@@ -1288,15 +1452,26 @@ bool fibo_get_config_and_set(void)
 
 bool fibo_static_ini_cfg()
 {
+    char file_path[128] = {0};
     INIT_LIST_HEAD(&s_ini_list);
 
-    if (!fibo_inifile_parse(&s_ini_list))
+    sprintf(file_path, "%s/%s", FIBO_APP_CONFIG_INI_PATH, FIBO_APP_CONFIG_INI);
+    if (access(file_path, F_OK))
     {
-        CFG_LOG_ERROR("parse ini file failed!");
+        sprintf(file_path, "%s/%s", "./", FIBO_APP_CONFIG_INI);
+        if (access(file_path, F_OK))
+        {
+            CFG_LOG_ERROR("file:%s,file is not exeist", file_path);
+            return false;
+        }
+    }
+    if (0 != fibo_config_parse(file_path, &s_ini_list))
+    {
+        CFG_LOG_CRITICAL("INI file parse error! exit");
         return false;
     }
+
     return true;
-    
 }
 
 bool fibo_static_config_paese()
@@ -1326,6 +1501,35 @@ bool fibo_static_config_paese()
     result = true;
     return result;
 }
+static bool static_config_doing = false; 
+bool static_config_set(void)
+{
+    if(static_config_doing)
+    {
+        CFG_LOG_INFO("service_status config is config...!");
+        return true;
+    }
+    if (!get_static_config_flg())
+    {
+        static_config_doing = true;
+        if (fibo_get_config_and_set())
+        {
+            set_static_config_flg(true);
+            static_config_doing = false;
+            CFG_LOG_INFO("service_status config successfully!");
+            return true;
+        }
+        else
+        {
+            static_config_doing = false;
+            CFG_LOG_ERROR("service_status config fail!");
+            return false;
+        }
+        
+    }
+    return true;
+}
+
 
 void fibo_deinit(void)
 {

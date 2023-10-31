@@ -148,22 +148,6 @@ typedef struct fibo_sar_xml5_s
     char index;
 } fibo_sar_xml5_t;
 
-typedef struct device_config_index_list_s
-{
-    char *wwanconfig_id;
-    char *map_type;
-    char *standard;
-    union
-    {
-        struct list_head map_type1_list;
-        struct list_head map_type2_list;
-        struct list_head map_type3_list;
-        struct list_head map_type4_list;
-        struct list_head map_type5_list;
-    } sar_xml_map;
-
-} device_sar_antenna_index_list_t;
-
 typedef struct devicemode_index_xml_parse_s
 {
     bool select_index_enable;
@@ -175,8 +159,6 @@ typedef struct devicemode_index_xml_parse_s
     struct type_method selet_method;
     struct list_head wwan_project_list;
     struct list_head wwancfg_disable_list;
-    /* fibo_wwan_project_xml_t project_xml;
-    fibo_wwancfg_disable_xml_t wwancfg_disable_list; */
 
 } devicemode_static_xml_parse_t;
 

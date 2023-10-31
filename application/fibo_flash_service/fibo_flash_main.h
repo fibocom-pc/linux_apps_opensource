@@ -25,7 +25,6 @@
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <linux/netlink.h>
-#include <sys/ioctl.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
@@ -39,6 +38,14 @@
 #include <dlfcn.h>
 #include <stdbool.h>
 #include <syslog.h>
+
+#include <string.h>
+#include <libxml/xmlmemory.h>
+#include <libxml/parser.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include "safe_str_lib.h"
+
 #include "fibocom-helper-gdbus-generated.h"
 
 #define AT_COMMAND_LEN    (256)
@@ -49,7 +56,7 @@
 #define NEW_PACKAGE_PATH "/opt/fibocom/fibo_fw_pkg/FwPackage.zip"
 #define FWPACKAGE_PATH   "/opt/fibocom/fibo_fw_pkg/FwPackage/"
 #define DEV_PKG_PATH     "/opt/fibocom/fibo_fw_pkg/FwPackage/DEV_OTA_PACKAGE/"
-#define FLASH_VERSION_STRING "1.0.3"
+#define FLASH_VERSION_STRING "1.0.5"
 
 extern int g_debug_level;
 
@@ -143,6 +150,12 @@ typedef enum {
     CMD_MAX_LIST
 } e_allow_cmd;
 
+typedef enum {
+    GET_SECTION = 1,
+    GET_KEY,
+    INI_FLAG_INIT
+} e_ini_flag;
+
 typedef enum
 {
     HELPER,
@@ -216,10 +229,11 @@ typedef struct Mesg
 
 typedef enum
 {
+    NO_PORT,
     NORMAL_PORT,
     FLASH_PORT,
     FASTBOOT_PORT,
-    NO_PORT,
+    DUMP_PORT,
     UNKNOW_PORT,
 }e_port_state;
 
@@ -237,5 +251,58 @@ typedef enum
     PORTSTATEFLAG,
     UNKNOWFLAG,
 }e_flags;
+
+#define LIST_NUM 8
+typedef struct oem_list
+{
+    char *oem;
+}oem_list;
+
+typedef struct vid_pid_list
+{
+    char *id;
+
+}vid_pid_list;
+
+typedef struct recovery_list
+{
+    oem_list oem;
+    vid_pid_list id;
+    vid_pid_list subsysid;
+}recovery_list;
+
+typedef struct g_flags{
+    e_command_type type;
+    int flag_arry[3];
+}g_flags;
+
+int get_retry_times();
+void set_package_flag(e_pkg_flag flag);
+void save_update_retry(int retry_times);
+int get_keyString(const char *filename, const char *section, const char *key, char *result);
+void save_cur_imei(char *imei);
+void save_cur_subSysid(char *subSysid);
+int get_fwinfo(fw_details *fwinfo);
+static void search_dev_pack(xmlNode *a_node, xmlChar* oemver, xmlChar* wwandevconfid,
+                            xmlChar* skuid, xmlChar *subsys_id);
+void find_dev_image(char *docname,xmlChar *oemver, xmlChar* wwandevconfid, xmlChar *skuid,
+                    xmlChar *subsys_id);
+static void search_oempack_ver(xmlNode *a_node, xmlChar* oemver);
+void find_oem_pack_ver_pkg_info(char *docname,xmlChar *oemver);
+static void search_skuid(xmlNode *a_node, const xmlChar *oemver);
+static void search_cid(xmlNode *a_node, const xmlChar *mccmnc);
+static void search_fw_version(xmlNode *a_node, const xmlChar *carrier_id, const xmlChar *subsys_id);
+void find_fw_version(char* docname, xmlChar* carrier_id, xmlChar* subsys_id);
+static void search_fw_version_default(xmlNode *a_node, const xmlChar *carrier_id, const xmlChar *subsys_id);
+void find_fw_version_default(char* docname, xmlChar* carrier_id, xmlChar* subsys_id );
+void find_carrier_id(char* docname,xmlChar* mccmnc);
+static void search_switchtbl_using_oemver(xmlNode *a_node, const xmlChar *oemver, const xmlChar *subsys_id);
+void find_switch_table(char *docname,xmlChar *oemver, xmlChar *subsys_id);
+int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
+                       char* oemver, char* wwandevconfid,fw_details *fw_ver);
+void find_path_of_file(const char* file, char* directory, char *pathoffile);
+gboolean comparative_oem_version();
+int check_port_state(char *state);
+void reset_update_retry();
 #endif
 

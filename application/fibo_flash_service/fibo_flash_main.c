@@ -47,35 +47,37 @@ mdmver_details g_curmdm_versions;
 static GMainLoop *gMainloop = NULL;
 FibocomGdbusHelper *proxy;
 char g_strType[256] = {0};
-extern int g_debug_level = LOG_DEBUG;
+int g_debug_level = LOG_DEBUG;
 e_flow_state flash_flow_state = FW_UPDATE_FLOW_UNLOCK;
 
 /*
  * recovery:
  * */
-typedef struct g_flags{
-    e_command_type type;
-    int flag_arry[3];
-}g_flags;
+static const recovery_list oem_vid_pid_arry[] = {
+        "5106","413c,8213","413c8213",
+        "5125","413c,8215","413c8215"
+};
+
 /*
  g_full_flags.flag_arry[0]:   9008->reboot -> flag = 1
  g_full_flags.flag_arry[1]:   9008->reboot->reboot_flag =1 > ready_falsh_flag = 1-> flash
-g_full_flags.flag_arry[2]:    modem port state:0 nopoert 1: flashport/fastbootport/normalport*/
- g_flags g_full_flags = {
-        UNKOWN_TYPE,
-        0,0,0
-};
-
+ g_full_flags.flag_arry[2]:    modem port state:0 nopoert 1: flashport/fastbootport/normalport
+*/
+g_flags g_full_flags = {UNKOWN_TYPE, 0, 0, 0};
+int reboot_count = 0;
 struct sigevent evp;
 struct itimerspec ts;
 struct itimerspec newts;
 timer_t timer;
-gboolean reboot_modem();
+gboolean reboot_modem(gpointer data);
 static int flash_flag = 0;
 pthread_mutex_t mutex;
-/*
- * recovery:
- * */
+
+void normalport_process();
+void flashport_process();
+void noport_process();
+void fastbootport_process();
+gboolean flash_fw_with_recovery(char *ap, char *modem, char *oem);
 
 int call_helper_method_final(gchar *inarg, gchar *atresp, gint cids)
 {
@@ -97,7 +99,7 @@ int call_helper_method_final(gchar *inarg, gchar *atresp, gint cids)
         atcommand_in = g_variant_new("((ii)iis)", FWFLASH, cids, rtcode, 0, "");
     }
 
-    fibocom_gdbus_helper_call_send_mesg_sync(proxy,atcommand_in,&atcommand_out,NULL,&callError);
+    fibocom_gdbus_helper_call_send_mesg_sync(proxy, atcommand_in, &atcommand_out, NULL, &callError);
     if(callError == NULL)
     {
         FIBO_LOG_INFO("[%x] call helper success\n", cids);
@@ -581,21 +583,41 @@ void get_subSysID_from_file(char *subSysID)
 bool check_power_status()
 {
     char path[40] = "/sys/class/power_supply/BAT0/capacity";
-    struct stat fstat;
+    char ac_present[40] = "/sys/class/power_supply/AC/online";
     int ret = 0;
     int fd;
+    int fp;
     char capacity[10] = {0};
+    char ac_online[8] = {0};
     int bat_threshold;
     int power_limit;
     char result[8] = {0};
 
     FIBO_LOG_INFO("check current battery capacity whether satisfy update");
 
+    fp = open(ac_present, O_RDONLY);
+    if (0 > fp)
+    {
+        FIBO_LOG_ERROR("cannot open file: %s", ac_present);
+    }
+    else
+    {
+        read(fp, ac_online, 5);
+        FIBO_LOG_INFO("ac online: %s", ac_online);
+        close(fp);
+
+        if (1 == atoi(ac_online))
+        {
+            FIBO_LOG_INFO("AC is present, to update");
+            return TRUE;
+        }
+    }
+
     ret = get_keyString(INI_PATH, "BASE_CONFIG", "POWER_LIMIT",result);
     if (ret)
     {
         FIBO_LOG_ERROR("get ini config failed");
-        return FALSE;
+        return TRUE;
     }
     else
     {
@@ -612,7 +634,7 @@ bool check_power_status()
     if (ret)
     {
         FIBO_LOG_ERROR("get ini config failed");
-        return FALSE;
+        return TRUE;
     }
     else
     {
@@ -620,25 +642,11 @@ bool check_power_status()
         FIBO_LOG_INFO("battery threshold is %d", atoi(result));
     }
 
-   ret = lstat(path, &fstat);
-   if(0 == ret)
-   {
-      if(S_ISLNK(fstat.st_mode))
-      {
-          FIBO_LOG_ERROR("symlink %s detected operation not permitted", path);
-          return FALSE;
-      }
-   }
-   else
-   {
-       FIBO_LOG_INFO("operation is permitted");
-   }
-
-
     fd = open(path, O_RDONLY);
     if (0 > fd)
     {
         FIBO_LOG_ERROR("cannot open file: %s", path);
+        return TRUE;
     }
     else
     {
@@ -730,7 +738,30 @@ void fw_update()
         return;
     }
 
-   status = get_mccmnc(mccmncid);
+    status = get_subSysID(subSysid);
+    if (ERROR == status)
+    {
+        FIBO_LOG_ERROR("failed to get subsysid");
+        get_subSysID_from_file(subSysid);
+    }
+    else
+    {
+        FIBO_LOG_INFO("get subSysid:%s", subSysid);
+
+        if (0 != strlen(subSysid))
+        {
+            FIBO_LOG_INFO("subSysid is not null, save it");
+            save_cur_subSysid(subSysid);
+        }
+    }
+
+    if(0 == strlen(subSysid))
+    {
+        FIBO_LOG_ERROR("get subSysID failed, do not flash");
+        return;
+    }
+
+    status = get_mccmnc(mccmncid);
     if (status == ERROR)
     {
         FIBO_LOG_ERROR("failed to get mccmnc");
@@ -760,30 +791,6 @@ void fw_update()
         save_cur_imei(imei);
     }
 
-
-    status = get_subSysID(subSysid);
-    if (ERROR == status)
-    {
-        FIBO_LOG_ERROR("failed to get subsysid");
-        get_subSysID_from_file(subSysid);
-    }
-    else
-    {
-        FIBO_LOG_INFO("get subSysid:%s", subSysid);
-
-        if (0 != strlen(subSysid))
-        {
-            FIBO_LOG_INFO("subSysid is not null, save it");
-            save_cur_subSysid(subSysid);
-        }
-    }
-
-    if(0 == strlen(subSysid))
-    {
-        strcpy(subSysid, "default");
-        FIBO_LOG_INFO("set subSysID to default");
-    }
-
     status = get_modem_version_info();
     if (ERROR == status)
     {
@@ -807,11 +814,11 @@ void fw_update()
                 set_package_flag(FLASH_START);
                 do_flash_fw(g_strType);
             }
-
         }
         else
         {
             FIBO_LOG_INFO("The devpack already has correct firmware version");
+            reset_update_retry();
         }
     }
     else if (AUTO == update_option)
@@ -832,17 +839,18 @@ void fw_update()
         else
         {
             FIBO_LOG_INFO("The modem already has correct firmware versions");
+            reset_update_retry();
         }
     }
     else if (FORCE == update_option)
     {
         FIBO_LOG_INFO("FW update is force flash, need to flash full packages");
 
-        memset(&g_curmdm_versions.ap_ver, "default", 32);
-        memset(&g_curmdm_versions.fw_ver, "default", 32);
-        memset(&g_curmdm_versions.cust_pack, "default", 32);
-        memset(&g_curmdm_versions.oem_pack, "default", 32);
-        memset(&g_curmdm_versions.dev_pack, "default", 32);
+        memcpy(&g_curmdm_versions.ap_ver, "default", strlen("default")+1);
+        memcpy(&g_curmdm_versions.fw_ver, "default", strlen("default")+1);
+        memcpy(&g_curmdm_versions.cust_pack, "default", strlen("default")+1);
+        memcpy(&g_curmdm_versions.oem_pack, "default", strlen("default")+1);
+        memcpy(&g_curmdm_versions.dev_pack, "default", strlen("default")+1);
 
         need_update = compare_version_need_update(&g_curmdm_versions, &fw_version);
         if (TRUE == need_update)
@@ -976,7 +984,7 @@ bool check_flash_flag()
     e_pkg_flag pkg_flag;
 
     pkg_flag = get_package_flag();
-    if (pkg_flag == FLASH_START)
+    if ((FLASH_START == pkg_flag) || (DECOMPRESS_SUCCESS == pkg_flag))
     {
         FIBO_LOG_INFO("last flash not complete or failed, need retry.");
         need_flash = TRUE;
@@ -989,7 +997,6 @@ bool check_flash_flag()
 
     return need_flash;
 }
-
 bool check_new_package()
 {
     FILE *zip_file = NULL;
@@ -1007,12 +1014,13 @@ bool check_new_package()
         ret = system(command);
         if (!ret)
         {
-            FIBO_LOG_INFO("unzip package sucess");
+            FIBO_LOG_INFO("decompress package success");
             set_package_flag(DECOMPRESS_SUCCESS);
             remove(NEW_PACKAGE_PATH);
         }
 
         new_pkg = TRUE;
+        fclose(zip_file);
     }
     else
     {
@@ -1125,7 +1133,7 @@ static g_flags get_set_reboot_flag(g_flags  value)
         case GET:
             return g_full_flags;
         case SET:
-            FIBO_LOG_INFO("[%s]&&&&&&&&&&&&&&&&&&&&&:%d,%d,%d\n, %d,%d,%d\n",__func__,
+            FIBO_LOG_INFO("[%s]current flags is :%d,%d,%d\n, value flags is :%d,%d,%d\n",__func__,
                           g_full_flags.flag_arry[0],
                           g_full_flags.flag_arry[1],
                           g_full_flags.flag_arry[2],
@@ -1147,16 +1155,13 @@ static g_flags get_set_reboot_flag(g_flags  value)
 
             }
 
-            FIBO_LOG_INFO("[%s]&&&&&&&&&&&&&&&&&&&&&:%d,%d,%d\n, %d,%d,%d\n",__func__,
+            FIBO_LOG_INFO("[%s]:Now set/get flags is :%d,%d,%d\n",__func__,
                           g_full_flags.flag_arry[0],
                           g_full_flags.flag_arry[1],
-                          g_full_flags.flag_arry[2],
-                          value.flag_arry[0],
-                          value.flag_arry[1],
-                          value.flag_arry[2]);
+                          g_full_flags.flag_arry[2]);
             return g_full_flags;
         default:
-        FIBO_LOG_INFO("[%s]:Error of unkown command type\n", __func__);
+            FIBO_LOG_INFO("[%s]:Error of unkown command type\n", __func__);
     }
 }
 
@@ -1166,7 +1171,7 @@ void sighandle(int signum)
     {
         case SIGALRM:
         FIBO_LOG_INFO("[%s]:Recv Alerm signal\n", __func__);
-            g_timeout_add(5000,(GSourceFunc)reboot_modem, NULL);
+            g_timeout_add(12000,(GSourceFunc)reboot_modem, NULL);
             break;
         default:
         FIBO_LOG_INFO("[%s]:Recv %d signal\n", __func__, signum);
@@ -1229,7 +1234,7 @@ gboolean stop_flash_timer()
     }
     else
     {
-        FIBO_LOG_INFO("[%s]: >>>>--it_value.tv_sec:%d,it_value.tv_nsec:%d,it_interval.tv_sec:%d, it_interval.tv_nsec:%d--------<<<<\n",
+        FIBO_LOG_INFO("[%s]: >>>>--it_value.tv_sec:%ld,it_value.tv_nsec:%ld,it_interval.tv_sec:%ld, it_interval.tv_nsec:%ld--------<<<<\n",
                       __func__, newts.it_value.tv_sec, newts.it_value.tv_nsec, newts.it_interval.tv_sec, newts.it_interval.tv_nsec);
         if(newts.it_value.tv_sec <= 0 && newts.it_value.tv_nsec <= 0)
         {
@@ -1253,7 +1258,7 @@ gboolean stop_flash_timer()
 static gboolean flash_status_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
 {
     g_flags flag;
-    FIBO_LOG_INFO("flash_status_handler &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& invoked! %s \n", value);
+    FIBO_LOG_INFO("flash_status_handler  invoked! %s \n", value);
     if(value == NULL)
     {
         return TRUE;
@@ -1271,7 +1276,7 @@ static gboolean flash_status_handler(FibocomGdbusHelper *object, const char *val
             flag.type = SET;
             flag.flag_arry[REBOOTFLAG] = 0;
             flag.flag_arry[READYFLASHFLAG] = 0;
-            flag.flag_arry[PORTSTATEFLAG] = 0;
+            flag.flag_arry[PORTSTATEFLAG] = NO_PORT;
             (void)get_set_reboot_flag(flag);
         }
         else if(strstr(value,"flash error"))
@@ -1288,12 +1293,41 @@ static gboolean flash_status_handler(FibocomGdbusHelper *object, const char *val
     return TRUE;
 }
 
-void normalport_precess();
-void flashport_precess();
-void noport_precess();
-void fastbootport_precess();
-gboolean flash_fw(char *ap, char *modem, char *oem);
-void normalport_precess()
+gboolean fastboot_reboot_callback()
+{
+    int ret = false;
+    int i = 0;
+    e_port_state state = UNKNOW_PORT;
+    //port is narml:1   flash port:2 dump:4 , not need reset modem
+    FIBO_LOG_INFO("[%s] : flags :%d,%d,%d!!!\n", __func__,
+                  g_full_flags.flag_arry[REBOOTFLAG],
+                  g_full_flags.flag_arry[READYFLASHFLAG],
+                  g_full_flags.flag_arry[PORTSTATEFLAG]);
+
+    if(g_full_flags.flag_arry[PORTSTATEFLAG] != FASTBOOT_PORT)
+    {
+        FIBO_LOG_NOTICE("[%s] : Not need rest modem, now is not fastboot port\n", __func__);
+        return false;
+    }
+
+    for(i = 0; i < 3; i++)
+    {
+        ret = call_helper_method_final(NULL, NULL, RESET_MODEM_HW);
+        if(ret == ERROR)
+        {
+            FIBO_LOG_ERROR("[%s] : rest modem error of call_helper_method_final!!\n", __func__);
+        }
+        else
+        {
+            FIBO_LOG_NOTICE("[%s] : rest modem OK\n", __func__);
+            break;
+        }
+    }
+
+    return false;
+}
+
+void normalport_process()
 {
     g_flags      flag;
     int          ret = 0;
@@ -1306,20 +1340,37 @@ void normalport_precess()
         FIBO_LOG_INFO("[%s]: >>>>-----stop_flash_timer error-----<<<<\n", __func__);
     }
 
-
     flag.flag_arry[REBOOTFLAG] = 0;
     flag.flag_arry[READYFLASHFLAG] = 0;
-    flag.flag_arry[PORTSTATEFLAG] = 1;
+    flag.flag_arry[PORTSTATEFLAG] = NORMAL_PORT;
     (void)get_set_reboot_flag(flag);
+
+    FIBO_LOG_NOTICE("[%s][%d]: will check OEM\n", __func__, __LINE__)
+    for(int i = 0; i < 3; i++)
+    {
+        ret = comparative_oem_version();
+        if(ret == true)
+        {
+            break;
+        }
+        else
+        {
+            FIBO_LOG_ERROR("[%s][%d]:comparative_oem_version error !\n", __func__, __LINE__);
+            sleep(1);
+        }
+    }
 }
-void flashport_precess()
+void flashport_process()
 {
     g_flags      flag;
-    fw_details fwinfo;
+    mdmver_details fwinfo;
     int ret = 0;
     flag.type = SET;
     (void)get_fwinfo( &fwinfo);
 
+    memset(fwinfo.oem_pack, 0, DEV_SUBSYSID_LEN);
+    memset(fwinfo.ap_ver, 0, DEV_SUBSYSID_LEN);
+    memset(fwinfo.fw_ver, 0, DEV_SUBSYSID_LEN);
     if(g_full_flags.flag_arry[REBOOTFLAG] == 0)
     {
         ret = stop_flash_timer();
@@ -1331,11 +1382,11 @@ void flashport_precess()
 
         flag.flag_arry[REBOOTFLAG] = -1;
         flag.flag_arry[READYFLASHFLAG] = -1;
-        flag.flag_arry[PORTSTATEFLAG] = 1;
+        flag.flag_arry[PORTSTATEFLAG] = FLASH_PORT;
         (void)get_set_reboot_flag(flag);
         FIBO_LOG_INFO("[%s]: >>>>-REBOOTFLAG is 0-----<<<<\n", __func__);
-        //reboot modem
-        reboot_modem();
+        //now is flashport, but reboot flags is 0, reboot modem with helper of gpio reset
+        reboot_modem(NULL);
     }
     else if(g_full_flags.flag_arry[REBOOTFLAG] == 1)
     {
@@ -1350,9 +1401,9 @@ void flashport_precess()
 
         flag.flag_arry[REBOOTFLAG] = -1;
         flag.flag_arry[READYFLASHFLAG] = 1;
-        flag.flag_arry[PORTSTATEFLAG] = 1;
+        flag.flag_arry[PORTSTATEFLAG] = FLASH_PORT;
         (void)get_set_reboot_flag(flag);
-        flash_fw(fwinfo.ap_ver, fwinfo.fw_ver, fwinfo.oem_pack);
+        flash_fw_with_recovery(fwinfo.ap_ver, fwinfo.fw_ver, fwinfo.oem_pack);
     }
     else if(g_full_flags.flag_arry[READYFLASHFLAG] == 1)
     {
@@ -1364,12 +1415,12 @@ void flashport_precess()
         }
         flag.flag_arry[REBOOTFLAG] = -1;
         flag.flag_arry[READYFLASHFLAG] = -1;
-        flag.flag_arry[PORTSTATEFLAG] = 1;
+        flag.flag_arry[PORTSTATEFLAG] = FLASH_PORT;
         (void)get_set_reboot_flag(flag);
-        flash_fw(fwinfo.ap_ver, fwinfo.fw_ver, fwinfo.oem_pack);
+        flash_fw_with_recovery(fwinfo.ap_ver, fwinfo.fw_ver, fwinfo.oem_pack);
     }
 }
-void noport_precess()
+void noport_process()
 {
     g_flags      flag;
     flag.type = SET;
@@ -1386,17 +1437,55 @@ void noport_precess()
     {
         FIBO_LOG_INFO("[%s]:Now is noport start 3min timer OK\n", __func__);
     }
-
+    reboot_count = 0;
     flag.flag_arry[REBOOTFLAG] = -1;
     flag.flag_arry[READYFLASHFLAG] = -1;
-    flag.flag_arry[PORTSTATEFLAG] = 0;
+    flag.flag_arry[PORTSTATEFLAG] = NO_PORT;
     (void)get_set_reboot_flag(flag);
 }
-void fastbootport_precess()
+void fastbootport_process()
 {
-    FIBO_LOG_INFO("[%s]:Now is fasbbootport\n", __func__);
+    g_flags      flag;
+    flag.type = SET;
+    int ret = 0;
+
+    FIBO_LOG_INFO("[%s]:Now is fastbootport\n", __func__);
+    ret = stop_flash_timer();
+    if(!ret)
+    {
+        perror("stop_flash_timer error\n");
+        FIBO_LOG_INFO("[%s]: >>>>-----stop_flash_timer error-----<<<<\n", __func__);
+    }
+
+    flag.flag_arry[REBOOTFLAG] = 0;
+    flag.flag_arry[READYFLASHFLAG] = 0;
+    flag.flag_arry[PORTSTATEFLAG] = FASTBOOT_PORT;
+    (void)get_set_reboot_flag(flag);
+
+    FIBO_LOG_NOTICE("[%s]:Now is fastboot port, will >>>---start 3min timer---<<<...[%s-%s]\n", __func__, __DATE__, __TIME__);
+    //add timer 3min
+    g_timeout_add(3*60*1000,(GSourceFunc)fastboot_reboot_callback, NULL);
 }
 
+void dumpport_process()
+{
+    g_flags      flag;
+    flag.type = SET;
+    int ret = 0;
+
+    FIBO_LOG_INFO("[%s]:Now is dump port\n", __func__);
+    ret = stop_flash_timer();
+    if(!ret)
+    {
+        perror("stop_flash_timer error\n");
+        FIBO_LOG_INFO("[%s]: >>>>-----stop_flash_timer error-----<<<<\n", __func__);
+    }
+
+    flag.flag_arry[REBOOTFLAG] = 0;
+    flag.flag_arry[READYFLASHFLAG] = 0;
+    flag.flag_arry[PORTSTATEFLAG] = DUMP_PORT;
+    (void)get_set_reboot_flag(flag);
+}
 //fw switch code
 static gboolean fastboot_status_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
 {
@@ -1405,7 +1494,7 @@ static gboolean fastboot_status_handler(FibocomGdbusHelper *object, const char *
 
     if(NULL == value)
     {
-        FIBO_LOG_INFO("value is null");
+        FIBO_LOG_INFO("Value is null\n");
         return TRUE;
     }
 
@@ -1511,22 +1600,24 @@ static gboolean modem_status_callback(FibocomGdbusHelper *object, const char *va
         switch (state)
         {
             case NORMAL_PORT:
-                normalport_precess();
+                normalport_process();
                 break;
             case FLASH_PORT:
-                flashport_precess();
+                flashport_process();
                 break;
             case NO_PORT:
-                noport_precess();
+                noport_process();
                 break;
             case FASTBOOT_PORT:
-                fastbootport_precess();
+                fastbootport_process();
+                break;
+            case DUMP_PORT:
+                dumpport_process();
                 break;
             default:
-                FIBO_LOG_INFO("[%s]:error invail port type\n", __func__);
+                FIBO_LOG_INFO("[%s]:Error port type\n", __func__);
         }
     }
-
 
     return TRUE;
 }
@@ -1542,26 +1633,40 @@ gboolean regester_interesting_siganl()
 }
 #endif
 
-gboolean reboot_modem()
+gboolean reboot_modem(gpointer data)
 {
     g_flags flag;
     FIBO_LOG_INFO("[%s] :enter!!!\n", __func__);
     int ret = 0;
-    FIBO_LOG_INFO("[%s] : @@@@@@@@@@@@@@@@@@@@@ready_flash_flag :%d,%d,%d!!!\n", __func__,
+    FIBO_LOG_INFO("[%s] : ready_flash_flag :%d,%d,%d!!!\n", __func__,
                   g_full_flags.flag_arry[REBOOTFLAG],
                   g_full_flags.flag_arry[READYFLASHFLAG],
                   g_full_flags.flag_arry[PORTSTATEFLAG]);
-    if(g_full_flags.flag_arry[READYFLASHFLAG]  == 1 && g_full_flags.flag_arry[PORTSTATEFLAG] == 1)
+
+    /* g_full_flags.flag_arry[PORTSTATEFLAG]:
+    * 0: noport
+    * 1: normal port
+    * 2: flash port
+    * 3: fastboot port
+    * 4: dump port
+    */
+    if(reboot_count == 15 ||
+    (g_full_flags.flag_arry[READYFLASHFLAG]  == 1 && g_full_flags.flag_arry[PORTSTATEFLAG] == FLASH_PORT))
     {
-        FIBO_LOG_INFO("[%s] : ready_flash_flag 1 !!!\n", __func__);
+        reboot_count = 0;
+        FIBO_LOG_INFO("[%s] : ready_flash_flag 1 or reboot_flag is 15 or normal port\n"
+                      "set reboot_flag to 0......\n", __func__);
         return false;
     }
 
+    reboot_count++;
+    FIBO_LOG_NOTICE("[%s][%d]: Now is [%d] reset module !!!\n", __func__, __LINE__, reboot_count);
     ret = call_helper_method_final(NULL, NULL, RESET_MODEM_HW);
     if(ret == ERROR)
     {
-        FIBO_LOG_INFO("[%s] : modem_stae 0 !!!\n", __func__);
-        return true; //contine call
+        FIBO_LOG_ERROR("[%s] : call_helper_method_final error !!!\n", __func__);
+        //continue call
+        return true;
     }
     else
     {
@@ -1570,7 +1675,7 @@ gboolean reboot_modem()
         flag.flag_arry[READYFLASHFLAG] = -1;
         flag.flag_arry[PORTSTATEFLAG] = -1;
         (void)get_set_reboot_flag(flag);
-        FIBO_LOG_INFO("[%s] : call_helper_method_final 1 !!!\n", __func__);
+        FIBO_LOG_NOTICE("[%s] : call_helper_method_final OK !!!\n", __func__);
         //call reboot until 9008 is exit!
         return true;
     }
@@ -1578,7 +1683,7 @@ gboolean reboot_modem()
 
 gboolean get_port_state(e_port_state *state)
 {
-    e_port_state portstate = NO_PORT;
+    e_port_state portstate = UNKNOW_PORT;
     gboolean ret = false;
     gchar mesg_resp[128] = {0};
     g_flags flag;
@@ -1586,9 +1691,10 @@ gboolean get_port_state(e_port_state *state)
     ret = call_helper_method_final(NULL, mesg_resp, GET_PORT_STATE);
     if(ret == ERROR)
     {
-        FIBO_LOG_INFO("[%s]:call_helper_method_final() error\n", __func__);
+        FIBO_LOG_ERROR("[%s]:call_helper_method_final() error\n", __func__);
         return false;
     }
+
     FIBO_LOG_INFO("[%s]:call_helper_method_final() ok:%s\n", __func__, mesg_resp);
     if(strstr(mesg_resp, "flashport"))
     {
@@ -1610,6 +1716,11 @@ gboolean get_port_state(e_port_state *state)
         portstate = NO_PORT;
         FIBO_LOG_INFO("[%s]:noport\n", __func__);
     }
+    else if(strstr(mesg_resp, "dump"))
+    {
+        portstate = DUMP_PORT;
+        FIBO_LOG_INFO("[%s]:Dump port\n", __func__);
+    }
 
     switch(portstate)
     {
@@ -1619,19 +1730,6 @@ gboolean get_port_state(e_port_state *state)
             FIBO_LOG_INFO("[%s]:NORMAL_PORT\n", __func__);
             break;
         case FLASH_PORT:
-/*            if(g_full_flags.flag_arry[REBOOTFLAG] == 0)
-            {
-                ret = reboot_modem();
-                if(!ret)
-                {
-                    FIBO_LOG_INFO("[%s]:reboot_modem() error\n", __func__);
-                }
-            }
-            else
-            {
-                FIBO_LOG_INFO("[%s]:%d\n", __func__,__LINE__);
-                ret = true;
-            }*/
             *state = FLASH_PORT;
             ret = true;
             FIBO_LOG_INFO("[%s]:FLASH_PORT\n", __func__);
@@ -1654,172 +1752,336 @@ gboolean get_port_state(e_port_state *state)
     return ret;
 }
 
-gboolean xml_process(char **ap, char **modem, char **oem)
+gboolean recovery_get_version_of_xml(char **ap, char **modem, char **oem, char *subsys_id)
 {
-    char subSysid[32] = {0}; //413C8211
-    fw_details fw_version;
-    char package_info_xml[126];
+    char subSysid[32] = {0};
+    fw_details fw_version = {0,0,0,0,0};
+    char package_info_xml[128] = {0};
     char *basepath = FWPACKAGE_PATH;
     flash_info checkInfo;
     FILE *g_file = NULL;
-    gboolean  new_pkg = check_new_package();
-    if (new_pkg == TRUE)
+    int count = 0;
+
+    memset(checkInfo.subSysId, 0, DEV_SUBSYSID_LEN);
+
+    for(count = 0; count < 3; count++)
     {
-        FIBO_LOG_INFO("[%s]:new packge find!\n", __func__);
+        find_path_of_file("FwPackageInfo.xml", basepath, package_info_xml);
+        if(package_info_xml[0] == '\0')
+        {
+            FIBO_LOG_ERROR("[%s][%d]: package_info_xml is  NULL, retry!!\n", __func__, __LINE__);
+            //package is not exit, wait 2s and rerty
+            sleep(2);
+            continue;
+        }
+        else
+        {
+            FIBO_LOG_NOTICE("[%s][%d]: package_info_xml is not NULL:[%s], break!!\n", __func__, __LINE__, package_info_xml);
+            break;
+        }
+        FIBO_LOG_ERROR("[%s][%d]: rety finashed, but package_info_xml is NULL!!\n", __func__, __LINE__);
+        return false;
+    }
+
+    if(subsys_id != NULL && *subsys_id)
+    {
+        memcpy(checkInfo.subSysId, subsys_id, DEV_SUBSYSID_LEN);
+        FIBO_LOG_NOTICE("[%s][%d]: subsys_id is not NULL: %s\n", __func__, __LINE__, checkInfo.subSysId);
     }
     else
     {
-        FIBO_LOG_INFO("[%s]:not new packge find!\n", __func__);
+        FIBO_LOG_ERROR("[%s][%d]: subsys_id is  NULL or *subsys_id is NULL!!\n", __func__, __LINE__);
     }
 
-    find_path_of_file("FwPackageInfo.xml", basepath, package_info_xml);
-    g_file = fopen(CONFIG_FILE_PATH, "r");
-    if (NULL == g_file)
+    if(checkInfo.subSysId[0] != '\0')
     {
-        FIBO_LOG_INFO("FwFlashSrv file not exist, create one");
-    }
-    else
-    {
-        FIBO_LOG_INFO("FwFlashSrv file exist");
-        memset(&checkInfo, 0, sizeof(flash_info));
-        g_file = fopen(CONFIG_FILE_PATH, "wb");
-        while(fread(&checkInfo, 1, sizeof(checkInfo), g_file) > 0);
-        FIBO_LOG_INFO("FwFlashSrv file exist");
-        fclose(g_file);
-    }
-
-    /*if(checkInfo.subSysId[0] != '\0')
-    {
-        FIBO_LOG_INFO("%x",checkInfo.subSysId[0]);
+        FIBO_LOG_NOTICE("[%s][%d]: find fw version from xml of subSysId\n", __func__, __LINE__);
         find_fw_version(package_info_xml, "default", checkInfo.subSysId);
-        FIBO_LOG_INFO("");
+        FIBO_LOG_NOTICE("[%s][%d]: find fw version from xml of subSysId >>OK<<\n", __func__, __LINE__);
     }
-    else*/
+    else
     {
-        FIBO_LOG_INFO("%s",checkInfo.subSysId);
+        FIBO_LOG_NOTICE("[%s][%d]: find fw version from xml of default\n", __func__, __LINE__);
         find_fw_version_default(package_info_xml, "default", "default");
-        FIBO_LOG_INFO("");
+        FIBO_LOG_NOTICE("[%s][%d]: find fw version from xml of default >>OK<<\n", __func__, __LINE__);
     }
 
+    FIBO_LOG_NOTICE("[%s][%d]: start get_fwinfo!\n", __func__, __LINE__);
     get_fwinfo(&fw_version);
-    FIBO_LOG_INFO("md:%s ap:%s oem:%s",fw_version.fw_ver, fw_version.ap_ver, fw_version.oem_pack);
-    *modem = (const char* )fw_version.fw_ver;
-    *ap = (const char* )fw_version.ap_ver;
-    *oem = NULL;
-    /*FIBO_LOG_INFO("md:%s\nap:%s\noem:%s",modem, ap, oem?oem:"");
-    if(g_file != NULL)
+    if((fw_version.ap_ver != NULL) && (fw_version.fw_ver != NULL))
     {
-        FIBO_LOG_INFO("");
-        fclose(g_file);
-    }*/
-    return true;
+        FIBO_LOG_NOTICE("[%s][%d]: get_fwinfo >>OK<<\n", __func__, __LINE__);
+        FIBO_LOG_NOTICE("md:%s,ap:%s\n",fw_version.fw_ver, fw_version.ap_ver);
+        memcpy(*modem, fw_version.fw_ver, strlen(fw_version.fw_ver) + 1);
+        memcpy(*ap, fw_version.ap_ver, strlen(fw_version.ap_ver) + 1);
+        if(fw_version.oem_pack != NULL)
+        {
+            FIBO_LOG_NOTICE("oem:%s\n", fw_version.oem_pack);
+            memcpy(*oem, fw_version.oem_pack, strlen(fw_version.oem_pack) + 1);
+        }
+        else if(checkInfo.subSysId[0] != '\0' && fw_version.oem_pack == NULL)
+        {
+            FIBO_LOG_NOTICE("ERROR: oem is NULL\n");
+            return false;
+        }
+
+        return true;
+    }
+    else
+    {
+        FIBO_LOG_ERROR("[%s][%d]:ERROR of get_fwinfo\n", __func__, __LINE__);
+        return false;
+    }
 }
 
-gboolean flash_fw(char *ap, char *modem, char *oem)
+gboolean flash_fw_with_recovery(char *ap, char *modem, char *oem)
 {
     int ret = 0;
     char flashinfo[256] = {0};
 
-
-    ret = xml_process(&ap, &modem, &oem);
+    ret = recovery_get_version_of_xml(&ap, &modem, &oem, NULL);
     if(ret == false)
     {
-        FIBO_LOG_INFO("[%s]:xml process error\n", __func__);
-        memcpy(flashinfo, "",sizeof(""));
+        FIBO_LOG_ERROR("[%s]:Get Version of xml error\n", __func__);
     }
     else
     {
-        if(oem && oem[0] != '\0')
+        if(ap && *ap && modem && *modem)
         {
-            snprintf(flashinfo, 256, "ap:%s;modem:%s;oem%s", ap, modem, oem);
-            FIBO_LOG_INFO("[%s]:ap:%s,modem:%s,oem%s\n", __func__, ap, modem, oem);
+            if(check_power_status() == false)
+            {
+                FIBO_LOG_INFO("[%s]:Need recovery, But the battery is Low!!!\n", __func__);
+                return false;
+            }
+
+            snprintf(flashinfo, 256, "ap:%s;md:%s;", ap, modem);
+            FIBO_LOG_NOTICE("[%s]:ap:%s,modem:%s, flash_info:%s\n", __func__, ap, modem, flashinfo);
+
+            FIBO_LOG_INFO("[%s]:start recovery......\n", __func__);
+            ret = call_helper_method_final(flashinfo, NULL, FLASH_FW_EDL);
+            if(ret == ERROR)
+            {
+                FIBO_LOG_ERROR("[%s]:flash error\n", __func__);
+                return false;
+            }
+            return true;
         }
         else
         {
-            snprintf(flashinfo, 256, "ap:%s;modem:%s", ap, modem);
-            FIBO_LOG_INFO("[%s]:ap:%s,modem:%s\n", __func__, ap, modem);
+            FIBO_LOG_NOTICE("[%s]:Version is NULL\n", __func__);
         }
     }
+    return false;
+}
 
+gboolean comparative_oem_version()
+{
+    int ret = false;
+    gchar oem_version[256] = {0};
+    gchar oem_usbid[256] = {0};
+    gchar flash_command[128] = {0};
+    int recovery_flag = 0;
+    int i = 0;
+    mdmver_details versions;
+    char *oem = NULL;
+    char *dev = NULL;
+    char *modem = NULL;
+    char *ap = NULL;
 
+    memset(versions.oem_pack, 0, DEV_SUBSYSID_LEN);
+    memset(versions.dev_pack, 0, DEV_SUBSYSID_LEN);
+    memset(versions.ap_ver, 0, DEV_SUBSYSID_LEN);
+    memset(versions.fw_ver, 0, DEV_SUBSYSID_LEN);
 
-    //ret = call_helper_method_final(flashinfo, NULL, FLASH_FW_EDL);
-    FIBO_LOG_INFO("[%s]:start recovery......\n", __func__);
-    ret = call_helper_method_final(NULL, NULL, FLASH_FW_EDL);
+    oem = versions.oem_pack;
+    dev = versions.dev_pack;
+    modem = versions.fw_ver;
+    ap = versions.ap_ver;
+
+    ret = call_helper_method_final(NULL, oem_version, GET_OEM_VERSION);
     if(ret == ERROR)
     {
-        FIBO_LOG_INFO("[%s]:flash error\n", __func__);
+        FIBO_LOG_ERROR("[%s][%d]:call_helper_method_final error!\n", __func__, __LINE__);
         return false;
     }
 
+    ret = call_helper_method_final(NULL, oem_usbid, GET_OEM_ID);
+    if(ret == ERROR)
+    {
+        FIBO_LOG_ERROR("[%s][%d]:call_helper_method_final error!\n", __func__, __LINE__);
+        return false;
+    }
+
+    for(i = 0; i < sizeof(oem_vid_pid_arry) / sizeof(recovery_list); i++)
+    {
+        if(strncmp(oem_vid_pid_arry[i].id.id, oem_usbid, 9) == 0)
+        {
+            FIBO_LOG_NOTICE("[%s][%d] oemusbid find \n", __func__,__LINE__);
+            recovery_get_version_of_xml(&(ap), &(modem), &(oem), oem_vid_pid_arry[i].subsysid.id);
+            if(versions.oem_pack[0] != '\0')
+            {
+                if(strncmp(oem_version, versions.oem_pack, 4) != 0)
+                {
+                    sprintf(flash_command, "oem:%s;", versions.oem_pack);
+                    FIBO_LOG_NOTICE("[%s][%d]Need recovery OEM:versions.oem_pack:[%s]\nNow start flash OEM....\n", __func__, __LINE__, flash_command);
+                    ret = call_helper_method_final(flash_command,NULL,FLASH_FW);
+                    if(ret == OK)
+                    {
+                        FIBO_LOG_NOTICE("[%s][%d]:call_helper_method_final OK!\n", __func__, __LINE__);
+                        return true;
+                    }
+                    else
+                    {
+                        FIBO_LOG_ERROR("[%s][%d]:call_helper_method_final ERROR!\n", __func__, __LINE__);
+                        return false;
+                    }
+                }
+                else
+                {
+                    FIBO_LOG_NOTICE("[%s][%d]:not need recovery oem!\n", __func__, __LINE__);
+                    return true;
+                }
+
+            }
+            else
+            {
+                FIBO_LOG_ERROR("[%s][%d]OEM version is NULL\n", __func__,__LINE__);
+                return false;
+            }
+        }
+    }
+
+    //not find oemusbid from list
+    FIBO_LOG_ERROR("[%s][%d]Not find oemusbid from List\n", __func__,__LINE__);
     return true;
 }
 
 void *fibo_recovery_monitor(void *arg)
 {
     gboolean ret = false;
-    e_port_state port_state = NO_PORT;
+    e_port_state port_state = UNKNOW_PORT;
     e_port_state *state = &port_state;
     GMainLoop *loop;
-    char *oem = NULL;
-    char *ap = NULL;
-    char *modem = NULL;
+    mdmver_details fwinfo;
+    int count = 0;
+    g_flags flag;
 
-    FIBO_LOG_INFO("[%s]:enter recovery thread\nInit timer.....\n", __func__);
+    flag.type = SET;
+    flag.flag_arry[REBOOTFLAG] = -1;
+    flag.flag_arry[READYFLASHFLAG] = -1;
+
+    memset(fwinfo.oem_pack, 0, DEV_SUBSYSID_LEN);
+    memset(fwinfo.dev_pack, 0, DEV_SUBSYSID_LEN);
+    memset(fwinfo.fw_ver, 0, DEV_SUBSYSID_LEN);
+    memset(fwinfo.ap_ver, 0, DEV_SUBSYSID_LEN);
+    gMainloop = g_main_loop_new(NULL, FALSE);
+    FIBO_LOG_NOTICE("[%s]:enter recovery thread\nInit timer.....\n", __func__);
     if(!init_flash_timer())
     {
-        FIBO_LOG_INFO("[%s]:init_flash_timer error\n", __func__);
+        FIBO_LOG_ERROR("[%s]:init_flash_timer error\n", __func__);
     }
 
     FIBO_LOG_INFO("[%s]:regester intresting signal......", __func__);
     ret = regester_interesting_siganl();
     if (!ret)
     {
-        FIBO_LOG_INFO("[%s]:regester_interesting_siganl() error\n", __func__);
+        FIBO_LOG_ERROR("[%s]:regester_interesting_siganl() error\n", __func__);
     }
 
     FIBO_LOG_INFO("[%s]:star call get_port_state()\n", __func__);
-    ret = get_port_state(state);
-    if(!ret)
+    for (count = 0; count < 3; count++)
     {
-        FIBO_LOG_INFO("[%s]:get_port_state() error\n", __func__);
+        ret = get_port_state(state);
+        if(ret)
+        {
+            FIBO_LOG_ERROR("[%s]:get_port_state() OK\n", __func__);
+            break;
+        }
+        else
+        {
+            FIBO_LOG_ERROR("[%s]:get_port_state() error, continue....\n", __func__);
+        }
+        sleep(1);
     }
+
 
     if(state && *state == NORMAL_PORT)
     {
+        flag.flag_arry[PORTSTATEFLAG] = NORMAL_PORT;
+        (void)get_set_reboot_flag(flag);
+        for(int i = 0; i < 3; i++)
+        {
+            ret = comparative_oem_version();
+            if(ret == true)
+            {
+                break;
+            }
+            else
+            {
+                FIBO_LOG_ERROR("[%s][%d]:comparative_oem_version error !\n", __func__, __LINE__);
+                sleep(1);
+            }
+        }
+
         FIBO_LOG_INFO("[%s]:port is normal, wait modemstate envent\n", __func__);
     }
-    //never enter
     else if(state && *state == FLASH_PORT && g_full_flags.flag_arry[REBOOTFLAG] == 1)
     {
+        flag.flag_arry[PORTSTATEFLAG] = FLASH_PORT;
+        (void)get_set_reboot_flag(flag);
         //flash
         FIBO_LOG_INFO("[%s]:is flash port,will flash fw!\n", __func__);
-        ret = flash_fw(ap, modem, oem);
+        ret = flash_fw_with_recovery(fwinfo.ap_ver, fwinfo.fw_ver, fwinfo.oem_pack);
         if(ret == false)
         {
-            FIBO_LOG_INFO("[%s]:is flash port,flash fw error!\n", __func__);
+            FIBO_LOG_ERROR("[%s]:is flash port,flash fw error!\n", __func__);
         }
     }
     else if(state && *state == FLASH_PORT && g_full_flags.flag_arry[REBOOTFLAG] == 0)
     {
+        flag.flag_arry[PORTSTATEFLAG] = FLASH_PORT;
+        (void)get_set_reboot_flag(flag);
         FIBO_LOG_INFO("[%s]:flag is 0,reboot is process\n", __func__);
-       /* ret = flash_fw(ap, modem, oem);
-        if(ret == false)
-        {
-            FIBO_LOG_INFO("[%s]:is flash port,flash fw error!\n", __func__);
-        }*/
-        reboot_modem();
+        reboot_modem(NULL);
     }
     else if(state && *state == NO_PORT)
     {
+        flag.flag_arry[PORTSTATEFLAG] = NO_PORT;
+        (void)get_set_reboot_flag(flag);
         //add timer 3min
         if(!start_flash_timer(3))
         {
-            FIBO_LOG_INFO("[%s]:start_flash_timer error\n", __func__);
+            FIBO_LOG_ERROR("[%s]:start_flash_timer error\n", __func__);
+        }
+        ret = true;
+    }
+    else if(state && *state == DUMP_PORT)
+    {
+        flag.flag_arry[PORTSTATEFLAG] = DUMP_PORT;
+        (void)get_set_reboot_flag(flag);
+        FIBO_LOG_ERROR("[%s]:Now is dump port, pls collect dump log...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        ret = true;
+    }
+    else if(state && *state == FASTBOOT_PORT)
+    {
+        flag.flag_arry[PORTSTATEFLAG] = FASTBOOT_PORT;
+        (void)get_set_reboot_flag(flag);
+        FIBO_LOG_NOTICE("[%s]:Now is fastboot port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        //add timer 3min
+        g_timeout_add(3*60*1000,(GSourceFunc)fastboot_reboot_callback, NULL);
+        ret = true;
+    }
+    else if(state && *state == UNKNOW_PORT)
+    {
+        FIBO_LOG_NOTICE("[%s]:Now is unknow port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        if(!start_flash_timer(3))
+        {
+            FIBO_LOG_ERROR("[%s]:start_flash_timer error\n", __func__);
         }
         ret = true;
     }
 
+    g_main_loop_run(gMainloop);
     return (void *)NULL;
 }
 
@@ -1896,19 +2158,20 @@ static gboolean sim_status_handler(FibocomGdbusHelper *object, const char *value
     return TRUE;
 }
 
-unsigned char find_ini(const char *filename, const char *section, const char *key, unsigned long long *section_pos, unsigned long long *key_pos)
+int find_ini(const char *filename, const char *section, const char *key, int *section_pos, int *key_pos)
 {
     FILE *fpr = NULL;
-    unsigned long long i = 0;
+    int i = 0;
     char sLine[1024] = {0};
     char *wTmp = NULL;
-    unsigned char flag = 0;
+//    unsigned char flag = 0;
+    e_ini_flag flag = INI_FLAG_INIT;
 
     fpr = fopen(filename, "r");
     if (NULL == fpr)
     {
         FIBO_LOG_ERROR("can't open file");
-        return -1;
+        return ERROR;
     }
 
     while(NULL != fgets(sLine, 1024, fpr))
@@ -1919,7 +2182,7 @@ unsigned char find_ini(const char *filename, const char *section, const char *ke
             {
                 *section_pos = i;
                 ++i;
-                flag = 1; //get section
+                flag = GET_SECTION; //get section
                 if (key == NULL)
                 {
                     goto END;
@@ -1936,7 +2199,8 @@ unsigned char find_ini(const char *filename, const char *section, const char *ke
                         if(strncmp(key, sLine, strlen(key)) == 0)
                         {
                             *key_pos = i;
-                            flag = 2; //get key
+                            flag = GET_KEY; //get key
+                            goto END;
                         }
                     }
 
@@ -1953,37 +2217,37 @@ END:
     fclose(fpr);
     FIBO_LOG_INFO("find ini flag: %d", flag);
 
-    if (2 == flag)
+    if (GET_KEY == flag)
     {
         FIBO_LOG_INFO("get key success");
-        return 0;
+        return OK;
     }
     else
     {
         FIBO_LOG_ERROR("get key failed");
-        return -1;
+        return ERROR;
     }
 }
 
 int get_keyString(const char *filename, const char *section, const char *key, char *result)
 {
     FILE *fpr = NULL;
-    unsigned long long section_pos;
-    unsigned long long key_pos;
-    unsigned long long i = 0;
+    int section_pos;
+    int key_pos;
+    int i = 0;
     char *wTmp = NULL;
     char sLine[1024] = {0};
 
-    if(find_ini(filename, section, key, &section_pos, &key_pos) != 0)
+    if(find_ini(filename, section, key, &section_pos, &key_pos) != OK)
     {
-        return -1;
+        return ERROR;
     }
 
     fpr = fopen(filename, "r");
     if (NULL == fpr)
     {
         FIBO_LOG_ERROR("can't open file");
-        return -1;
+        return ERROR;
     }
 
     while (NULL != fgets(sLine, 1024, fpr))
@@ -1997,14 +2261,25 @@ int get_keyString(const char *filename, const char *section, const char *key, ch
                 ++wTmp;
             }
             strncpy(result, wTmp, strlen(wTmp));
-            result[strlen(wTmp)-2] = '\0';
+
+            if (NULL != strstr(result, "\r\n"))
+            {
+                FIBO_LOG_INFO("get result string has carriage return");
+                result[strlen(wTmp)-2] = '\0';
+            }
+            else
+            {
+                result[strlen(wTmp)-1] = '\0';
+            }
+
+            break;
         }
 
         ++i;
     }
 
     fclose(fpr);
-    return 0;
+    return OK;
 }
 
 void log_init()
@@ -2025,7 +2300,6 @@ void log_init()
         g_debug_level = atoi(result);
         FIBO_LOG_INFO("debug level is set to %d", g_debug_level);
     }
-
 }
 
 int check_port_state(char *state)

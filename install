@@ -61,6 +61,7 @@ function copy_file_to_deb_directory()
     if [ -d $DEB_MA_SERVICE_DIR ]; then
         #rm -r ${DEB_MA_SERVICE_DIR}/*
         cp -raf ${MA_SERVICE_PATH_APP_PATH} ${DEB_MA_SERVICE_DIR}
+        create_fcc_unlock ${DEB_MA_SERVICE_DIR}/fcc-unlock.d
 
     fi
 
@@ -223,7 +224,7 @@ function create_and_install()
     if [ -d "${BUILD_DIR}/release" ];then
        rm -r ${BUILD_DIR}/release
     fi
-
+    
     mkdir -p ${BUILD_DIR}/release/dpkg/lib/systemd/system/
     create_config_service ${BUILD_DIR}/release/dpkg/lib/systemd/system/
     create_flash_service ${BUILD_DIR}/release/dpkg/lib/systemd/system/
@@ -243,15 +244,14 @@ function create_and_install()
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/fibo_helper_tools/
     cp ${BUILD_DIR}/application/3rd/qdl/qdl ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/fibo_helper_tools/
-    mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_ma_service/
+    # mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_ma_service/
+    mkdir -p ${DEB_MA_SERVICE_DIR}/fcc-unlock.d
 
     #create lib and file
     mkdir -p ${BUILD_DIR}/release/dpkg/usr/share/dbus-1/system.d/
     create_helper_conf ${BUILD_DIR}/release/dpkg/usr/share/dbus-1/system.d/
     mkdir -p ${BUILD_DIR}/release/dpkg/usr/lib/udev/rules.d/
     create_rule ${BUILD_DIR}/release/dpkg/usr/lib/udev/rules.d/
-    mkdir -p ${BUILD_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d
-    create_fcc_unlock ${BUILD_DIR}/release/dpkg/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d
 
 
 }

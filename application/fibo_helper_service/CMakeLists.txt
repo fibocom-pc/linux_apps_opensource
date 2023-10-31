@@ -19,14 +19,15 @@ cmake_minimum_required(VERSION 3.6)
 project(fibo_helper_service)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0 gio-unix-2.0)
+find_package(LibXml2 REQUIRED)
+pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0 gio-unix-2.0 udev)
 
 ##################################
 # Fibocom linux Gdbus codegen
 
 find_program(GDBUSCODEGEN NAMES gdbus-codegen)
 if (NOT GDBUSCODEGEN)
-	message(SEND_ERROR "Could not find gdbus-codegen")
+    message(SEND_ERROR "Could not find gdbus-codegen")
 endif(NOT GDBUSCODEGEN)
 
 add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
@@ -98,7 +99,8 @@ target_link_libraries(fibo_helperd
             gobject-2.0
             glib-2.0
             mm-glib
-            PkgConfig::deps)
+            PkgConfig::deps
+            LibXml2::LibXml2)
 
 target_link_libraries(fibo_helperm
             code
@@ -109,4 +111,5 @@ target_link_libraries(fibo_helperm
             gobject-2.0
             glib-2.0
             mm-glib
-            PkgConfig::deps)
+            PkgConfig::deps
+            LibXml2::LibXml2)

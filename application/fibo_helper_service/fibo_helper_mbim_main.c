@@ -26,7 +26,7 @@
 GMainLoop   *gMainLoop            = NULL;
 
 static gint
-fibo_helper_control_receiver_init()
+fibo_helperm_control_receiver_init()
 {
     int      ret              = RET_ERROR;
     GThread  *ctl_rcv_thread  = NULL;
@@ -72,7 +72,7 @@ gint main(gint argc, char const *argv[])
     #endif
 
     // step1: init a thread to get control message, aka, mbim init and close.
-    ret = fibo_helper_control_receiver_init();
+    ret = fibo_helperm_control_receiver_init();
     if (ret != RET_OK) {
         FIBO_LOG_CRITICAL("fibo_helper_control_receiver_init failed! exit mainloop!\n");
         return ret;

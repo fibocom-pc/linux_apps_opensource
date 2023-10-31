@@ -24,10 +24,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <libxml2/libxml/parser.h>
-#include <libxml2/libxml/tree.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 #include "fibo_parse_xml.h"
-#include "cfg_log.h"
+#include "fibo_cfg_log.h"
 
 bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                              struct list_head *list_sku, struct list_head *list_mcc)
@@ -332,8 +332,8 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
                                             xmlFree(data);
                                         }
                                         list_add_tail(&custom_list->list, sar_custom_list);
-                                        // CFG_LOG_DEBUG("Regulatory:%s,SAR_TYPE:%s,DB_OFFSET_Enable:%s", custom_list->regulatory,\
-                                                      custom_list->sar_type, custom_list->db_offset_enable);
+                                        /* CFG_LOG_DEBUG("Regulatory:%s,SAR_TYPE:%s,DB_OFFSET_Enable:%s", custom_list->regulatory,\
+                                                      custom_list->sar_type, custom_list->db_offset_enable); */
                                     }
                                     else
                                     {
@@ -712,7 +712,7 @@ static char get_sar_index_from_xml(xmlNodePtr node)
 
 static char get_device_mode_index(xmlNodePtr node)
 {
-    char index;
+    char index = 0;
     xmlChar *index_data = xmlGetProp(node, BAD_CAST "DeviceMode");
     if (NULL != index_data)
     {
@@ -724,7 +724,7 @@ static char get_device_mode_index(xmlNodePtr node)
 
 static char get_sensor1_index(xmlNodePtr node)
 {
-    char index;
+    char index = 0;
     xmlChar *index_data = xmlGetProp(node, BAD_CAST "Sensor1");
     if (NULL != index_data)
     {
@@ -736,7 +736,7 @@ static char get_sensor1_index(xmlNodePtr node)
 
 static char get_sensor2_index(xmlNodePtr node)
 {
-    char index;
+    char index =0;
     xmlChar *index_data = xmlGetProp(node, BAD_CAST "Sensor2");
     if (NULL != index_data)
     {
@@ -748,7 +748,7 @@ static char get_sensor2_index(xmlNodePtr node)
 
 static char get_sensor3_index(xmlNodePtr node)
 {
-    char index;
+    char index = 0;
     xmlChar *index_data = xmlGetProp(node, BAD_CAST "Sensor3");
     if (NULL != index_data)
     {

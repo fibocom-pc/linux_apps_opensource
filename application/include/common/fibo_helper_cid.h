@@ -9,39 +9,45 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * @file config_helper.h
- * @author ziqi.zhao@fibocom.com (zhaoziqi)
- * @brief 
+ * @file fibo_private_log.h
+ * @author rick.chen@fibocom.com (chenhaotian)
+ * @brief
  * @version 1.0
  * @date 2023-09-23
- * 
- * 
+ *
+ *
  **/
 
-#ifndef __CONFIG_HELPER_H__
-#define __CONFIG_HELPER_H__
+#ifndef _FIBO_HELPER_CID_H_
+#define _FIBO_HELPER_CID_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-
-typedef enum
-{
-    HELPER,
-    MASERVICE,     /* MA service */
-    CONFIGSERVICE, /* Config service */
-    FWSWITCH,      /* FWswitch service */
-    UNKNOW_SERVICE /* unknow service */
-}e_service;
+#include <syslog.h>
+#include <glib.h>
+#include "stdio.h"
 
 typedef enum
 {
     ENUM_CID_MIN           = 0x0000,
 
+    CTL_MBIM_INIT          = 0x0001,
+    CTL_MBIM_DEINIT        = 0x0002,
+    CTL_MBIM_END           = 0x0003,
+    CTL_MBIM_NO_RESP,
+
+    CTL_MBIM_SUBSCRIBER_READY_QUERY = 0x0010,
+    CTL_MBIM_SUBSCRIBER_READY_IND,
+    CTL_MBIM_HOME_PROVIDER_QUERY,
+    CTL_MBIM_HOME_PROVIDER_IND,
+    CTL_MBIM_REGISTER_STATE_QUERY,
+    CTL_MBIM_REGISTER_STATE_IND,
+    CTL_MBIM_SLOT_INFO_QUERY,
+    CTL_MBIM_SLOT_INFO_IND,
+    CTL_MBIM_SLOT_MAPPING_QUERY,
+    CTL_MBIM_SLOT_MAPPING_SET,
+    CTL_MBIM_SLOT_MAPPING_IND,
+
     /* 0x0001 -0x0FFF is reserved for common cid */
-    RESET_MODEM_SW         = 0x0001,
+    RESET_MODEM_SW         = 0x0100,
 
     COMMAND_ENUM_MIN       = 0x1000,
     /* FWswitch service command list */
@@ -116,45 +122,13 @@ typedef enum
     GET_DISABLE_ESIM_STATUS,
     SET_DISABLE_ESIM,
 
+    GET_NETWORK_MCCMNC,
+    /* sim card slots */
+    GET_SIM_SLOTS_STATUS,
+    SET_SIM_SLOTS,
+
     ENUM_CID_MAX
 }e_command_cid;
 
-typedef enum {
-    GET_DATA_SUCCESS=0,
-    GET_DATA_FAIL,
-    SERVICE_BUSY,
-    UNKNOW_CODE,
-}status_code;
+#endif /* _FIBO_HELPER_CID_H_ */
 
-typedef struct Header
-{
-    e_service service_id;
-    e_command_cid command_cid;
-
-}Header;
-
-typedef struct Mesg
-{
-    Header header;
-    status_code rtcode;
-	int payload_lenth;
-    char payload[0];
-}mesg_info;
-
-
-
-void fibo_dus_init(void);
-bool get_dbus_connect_flg(void);
-void set_static_config_flg(bool value);
-bool get_static_config_flg(void);
-bool fibo_dbus_init_status(void);
-void fibo_set_sim_change(bool value);
-bool fibo_get_sim_change(void);
-char *fibo_get_mcc_value(void);
-
-bool register_dbus_event_handler(void);
-bool fibo_get_sim_reign(void);
-bool dbus_service_is_ready(void);
-bool send_message_get_response(e_command_cid cid, char *payload, int len, mesg_info **response);
-
-#endif

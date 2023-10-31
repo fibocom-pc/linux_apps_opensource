@@ -25,7 +25,7 @@
 #include "iniparser.h"
 #include "fibo_config_parse.h"
 #include "fibo_list.h"
-#include "cfg_log.h"
+#include "fibo_cfg_log.h"
 
 #define KEY_NAME_COUNT 64
 

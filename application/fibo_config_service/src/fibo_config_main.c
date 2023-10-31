@@ -23,10 +23,10 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include "version.h"
-#include "cfg_log.h"
-#include "static_config.h"
-#include "dynamic_config.h"
-#include "config_helper.h"
+#include "fibo_cfg_log.h"
+#include "fibo_static_config.h"
+#include "fibo_dynamic_config.h"
+#include "fibo_config_helper.h"
 
 int main(int argc, char **argv)
 {
@@ -39,12 +39,12 @@ int main(int argc, char **argv)
     void *event_result = NULL;
     void *dynamic_result = NULL;
     
-    CFG_LOG_OPEN() 
+    CFG_LOG_OPEN();
     CFG_LOG_INFO("fibo_config_service version:%s", CONFIG_VERSION_STRING);
 
     if (!fibo_static_ini_cfg())
     {
-        CFG_LOG_ERROR("static config error");
+        CFG_LOG_ERROR("ini file parse error");
         return 1;
     }
     if(0 == fibo_get_start_state())
@@ -68,15 +68,31 @@ int main(int argc, char **argv)
     }
     CFG_LOG_INFO("connect dbus is ready!");
 
-    if (!get_static_config_flg())
+    for(int i = 0; i < 3; i++)
     {
-        if (fibo_get_config_and_set())
+        if(static_config_set())
         {
-            set_static_config_flg(true);
-            CFG_LOG_ERROR("static config_and_set success");
+            break;
         }
     }
-    // return true;
+    if(!msg_init())
+    {
+        CFG_LOG_ERROR("msg_init failed");
+        return 1;
+    }
+
+    result = pthread_create(&dynamic_tid, NULL, dynamic_thread, NULL);
+    if (result)
+    {
+        CFG_LOG_ERROR("create event_from_file_thread error");
+        return 1;
+    }
+    //first check cueernt mcc
+    if(!cfg_get_mcc())
+    {
+        CFG_LOG_ERROR("[first check cueernt mcc] error");
+    }
+    send_event_by_mcc_change();
     get_device_mode_method = fibo_device_mode_get();
     if (1 == get_device_mode_method)
     {
@@ -99,16 +115,13 @@ int main(int argc, char **argv)
         }
     }
 
-    result = pthread_create(&dynamic_tid, NULL, dynamic_thread, NULL);
-    if (result)
-    {
-        CFG_LOG_ERROR("create event_from_file_thread error");
-        return 1;
-    }
+    
     // fibo_dbus_run();
     register_dbus_event_handler();
     pthread_join(event_tid, &event_result);
     pthread_join(dynamic_tid, &dynamic_result);
+    fibo_deinit();
+    dynamic_deinit();
     CFG_LOG_CLOSE();
     return 0;
 }

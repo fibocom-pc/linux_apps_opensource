@@ -17,16 +17,7 @@
  *
  *
  **/
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <libxml/xmlmemory.h>
-#include <libxml/parser.h>
-#include <sys/types.h>
-#include <dirent.h>
 #include "fibo_flash_main.h"
-#include "safe_str_lib.h"
 
 #ifndef EOK
 #define EOK (0)
@@ -45,12 +36,29 @@ static xmlChar *switch_table_file = NULL;
 
 int get_fwinfo(fw_details *fwinfo)
 {
-    fwinfo->ap_ver = ap_version;
-    fwinfo->fw_ver = fw_version;
-    fwinfo->cust_pack = cust_pack;
-    fwinfo->oem_pack = oem_pack_ver;
-    fwinfo->dev_pack = dev_ota_image;
+    FIBO_LOG_NOTICE("[%s][%d]: enter func\n", __func__, __LINE__);
+    if(ap_version != NULL)
+    {
+        fwinfo->ap_ver = ap_version;
+        FIBO_LOG_NOTICE("[%s][%d]: %s\n", __func__, __LINE__, ap_version);
+    }
+    if(fw_version != NULL)
+    {
+        fwinfo->fw_ver = fw_version;
+        FIBO_LOG_NOTICE("[%s][%d]: %s\n", __func__, __LINE__,fw_version );
+    }
+    if(oem_pack_version != NULL)
+    {
+        fwinfo->oem_pack = oem_pack_version;
+        FIBO_LOG_NOTICE("[%s][%d]: %s\n", __func__, __LINE__, oem_pack_version);
+    }
+    if(dev_ota_image != NULL)
+    {
+        fwinfo->dev_pack = dev_ota_image;
+        FIBO_LOG_NOTICE("[%s][%d]: %s\n", __func__, __LINE__, dev_ota_image);
+    }
 
+    FIBO_LOG_NOTICE("[%s][%d]: get successed!\n", __func__, __LINE__);
     return 0;
 }
 static void search_dev_pack(xmlNode *a_node, xmlChar* oemver, xmlChar* wwandevconfid,
@@ -259,6 +267,74 @@ static void search_cid(xmlNode *a_node, const xmlChar *mccmnc)
         }
 
         search_cid(cur_node->children, mccmnc);
+    }
+}
+
+void carrier_id_init()
+{
+    if ((NULL != carrier_id) && (0 != strcmp(carrier_id, "default")))
+    {
+        FIBO_LOG_DEBUG("need to clear previous carrier id");
+        xmlFree(carrier_id);
+        carrier_id = NULL;
+    }
+}
+
+void dev_version_init()
+{
+    if (NULL != dev_ota_image)
+    {
+        FIBO_LOG_DEBUG("need to clear previous dev_ota_image");
+        xmlFree(dev_ota_image);
+        dev_ota_image = NULL;
+    }
+}
+
+void switch_table_info_init()
+{
+    if (NULL != switch_table_file)
+    {
+        FIBO_LOG_DEBUG("need to clear previous switch_table_file");
+        xmlFree(switch_table_file);
+        switch_table_file = NULL;
+    }
+}
+
+void fw_version_info_init()
+{
+    if (NULL != fw_version)
+    {
+        FIBO_LOG_DEBUG("need to clear previous fw_version");
+        xmlFree(fw_version);
+        fw_version = NULL;
+    }
+
+    if (NULL != cust_pack)
+    {
+        FIBO_LOG_DEBUG("need to clear previous cust_pack");
+        xmlFree(cust_pack);
+        cust_pack = NULL;
+    }
+
+    if (NULL != oem_pack_ver)
+    {
+        FIBO_LOG_DEBUG("need to clear previous oem_pack_ver");
+        xmlFree(oem_pack_ver);
+        oem_pack_ver = NULL;
+    }
+
+    if (NULL != oem_pack_version)
+    {
+        FIBO_LOG_DEBUG("need to clear previous oem_pack_version");
+        xmlFree(oem_pack_version);
+        oem_pack_version = NULL;
+    }
+
+    if (NULL != ap_version)
+    {
+        FIBO_LOG_DEBUG("need to clear previous ap_version");
+        xmlFree(ap_version);
+        ap_version = NULL;
     }
 }
 
@@ -595,9 +671,9 @@ int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
     xmlChar *mccmnc = NULL;
     xmlChar *oem_pkg_ver = NULL;
     int indicator;
-    char fwswitch_table[126] = {0};
-    char package_info_xml[126] = {0};
-    char wwan_devid_map_table_xml[126] = {0};
+    char fwswitch_table[128] = {0};
+    char package_info_xml[128] = {0};
+    char wwan_devid_map_table_xml[128] = {0};
 
     FIBO_LOG_INFO("begin parse version info from XMLs");
 
@@ -606,6 +682,7 @@ int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
 
     FIBO_LOG_INFO("oemver is %s", oemver); //read from device
 
+    switch_table_info_init();
     if(strnlen_s(package_info_xml, 32) != 0)
     {
         find_switch_table(package_info_xml, oemver, subsys_id);
@@ -618,6 +695,7 @@ int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
 
     FIBO_LOG_INFO("find switch table:%s", switch_table_file);
 
+    carrier_id_init();
     if(strnlen_s(fwswitch_table, 32) != 0)
     {
        find_carrier_id(fwswitch_table,mccmnc_id);
@@ -630,6 +708,7 @@ int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
 
     FIBO_LOG_INFO("find carrier id by mccmnc is:%s", carrier_id);
 
+    fw_version_info_init();
     if(EOK == strcmp_s(subsys_id,strnlen_s(subsys_id,32),"default",&indicator))
     {
         if(0 == indicator)
@@ -650,16 +729,17 @@ int parse_version_info(char* mccmnc_id, char* sku_id, char* subsys_id,
         }
     }
 
+    dev_version_init();
     if(strnlen_s(wwan_devid_map_table_xml, 32) != 0)
     {
        find_dev_image(wwan_devid_map_table_xml,oem_pack_version, wwandevconfid, sku_id, subsys_id);
     }
 
-    fw_ver->fw_ver = (const char* )fw_version;
-    fw_ver->cust_pack = (const char* )cust_pack;
-    fw_ver->oem_pack = (const char* )oem_pack_version;
-    fw_ver->dev_pack = (const char* )dev_ota_image;
-    fw_ver->ap_ver = (const char* )ap_version;
+    fw_ver->fw_ver = fw_version;
+    fw_ver->cust_pack = cust_pack;
+    fw_ver->oem_pack = oem_pack_version;
+    fw_ver->dev_pack = dev_ota_image;
+    fw_ver->ap_ver = ap_version;
 
     FIBO_LOG_INFO("MD version:%s, OP version is:%s, OEM version is:%s, DEV version is:%s, AP version is:%s\n",
         fw_ver->fw_ver, fw_ver->cust_pack, fw_ver->oem_pack, fw_ver->dev_pack, fw_ver->ap_ver);
@@ -709,6 +789,5 @@ void find_path_of_file(const char* file, char* directory, char *pathoffile)
             }
         }
     }
-
     closedir(direcP);
 }

@@ -130,9 +130,9 @@ void     fibo_adapter_mutex_cellular_info_operate_lock(void);
 void     fibo_adapter_mutex_force_sync_unlock(void);
 void     fibo_adapter_mutex_force_sync_lock(void);
 gint     fibo_adapter_all_mutex_init(void);
-gint     fibo_adapter_send_control_message_to_dbus(int cid, int payloadlen, char *payload_str);
-gint     fibo_adapter_send_control_message_to_mbim(int cid, int payloadlen, char *payload_str);
-void     fibo_adapter_send_async_resp_to_dbus(FibocomGdbusHelper *skeleton, GDBusMethodInvocation *invocation, gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str);
+gint     fibo_adapter_helperm_send_control_message_to_helperd(int cid, int payloadlen, char *payload_str);
+gint     fibo_adapter_helperd_send_control_message_to_helperm(int cid, int payloadlen, char *payload_str);
+void     fibo_adapter_helperd_send_resp_to_dbus(FibocomGdbusHelper *skeleton, GDBusMethodInvocation *invocation, gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str);
 gint     fibo_adapter_get_supported_module_number(void);
 gint     fibo_adapter_get_supported_module_info(Fibocom_module_info_type *module_info, gint index);
 gint     fibo_adapter_get_work_cellular_info(fibocom_cellular_type *work_cellular_info);
@@ -155,8 +155,15 @@ gint     fibo_adapter_helperd_get_normal_msg_from_helperm(void *msgs);
 gint     fibo_adapter_helperd_send_req_to_helperm(void *msgs, int msgsize);
 gint     fibo_adapter_get_helper_seq_id(int seq);
 gint     fibo_adapter_helper_queue_init(void);
-gint     fibo_adapter_helperm_get_local_mccmnc(void);
-
+gint     fibo_adapter_helperd_timer_handle(void);
+gint     fibo_adapter_helperd_timer_close(void);
+void     fibo_adapter_helperm_control_get_local_mccmnc_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+gint     fibo_adapter_helperm_get_local_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata);
+void     fibo_adapter_helperm_control_get_network_mccmnc_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+gint     fibo_adapter_helperm_get_network_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata);
+gint     fibo_adapter_helperm_get_subscriber_ready_status(void);
+gint     fibo_adapter_helperm_get_work_slot_info(GAsyncReadyCallback func_pointer, gpointer userdata);
+gint     fibo_adapter_helperm_switch_work_slot(GAsyncReadyCallback func_pointer, gpointer userdata);
 int      fibo_adapter_send_at_command(const char *req_cmd, char *rspbuf, const char *mbimportname);
 
 #endif /* _FIBO_HELPER_ADAPTER_H_ */

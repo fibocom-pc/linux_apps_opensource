@@ -28,18 +28,22 @@
 #include <gio/gio.h>
 #include <execinfo.h>
 #include "fibocom-helper-gdbus-generated.h"
-#include "cfg_log.h"
-#include "static_config.h"
-#include "config_helper.h"
-#include "dynamic_config.h"
+#include "fibo_cfg_log.h"
+#include "fibo_static_config.h"
+#include "fibo_config_helper.h"
+#include "fibo_dynamic_config.h"
+#include "fibo_helper_cid.h"
+#include "assert.h"
 
 #define HELPER_BUS_SERVICE "com.fibocom.helper"
 #define HELPER_BUS_PATH "/com/fibocom/helper"
 
 static FibocomGdbusHelper *proxy = NULL;
-static char mcc[8] = "440";
+static char roam_mcc_new[8+1] = {0};
+static char roam_mcc_old[8+1] = {0};
 static bool mcc_changed = false;
 static bool static_config_end = false;
+static bool dbus_is_ready = false;
 
 void stack_trace()
 {
@@ -82,40 +86,129 @@ static void sig_handler(int sig)
     exit(-1);
 }
 
-static gboolean modem_status_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
+void send_event_by_mcc_change(void)
 {
-    CFG_LOG_DEBUG("modem_status_handler invoked! %s \n", value);
-    if (userdata == NULL)
+    int result = 0;
+    char *mccmnc_new = NULL;
+    msg_st_t msg = {0};
+
+    int msg_len = sizeof(msg_st_t) - sizeof(long int);
+
+    // fibo_set_sim_change(false);
+    mccmnc_new = fibo_get_mcc_value();
+    if (0 == strlen(mccmnc_new))
     {
-        return TRUE;
+        // goto dev_monitor;
+        CFG_LOG_ERROR("get mcc error");
+        return;
     }
-    else
+    CFG_LOG_DEBUG("get mcc success,mccmnc_new:%s", mccmnc_new);
+    fibo_set_disableesim_for_mcc();
+    if (0 != strcmp(roam_mcc_old, mccmnc_new))
     {
-        CFG_LOG_DEBUG("[%s]:recive userdate :%s\n", (char *)userdata, (char *)userdata);
+        msg.msg_type = MCCMNC_CHANGE;
+        strncpy(msg.mccmnc, mccmnc_new, sizeof(msg.mccmnc));
+        result = msgsnd(get_msg_id(), (void *)&msg, msg_len, 0);
+        if (result)
+        {
+            CFG_LOG_ERROR("send mccmnc change event error,result:%d", result);
+        }
+        else
+        {
+            CFG_LOG_INFO("send msg success,mcc change mccmnc_new:%s", mccmnc_new);
+            strncpy(roam_mcc_old, mccmnc_new, strlen(mccmnc_new));
+        }
     }
 }
 
+gboolean cfg_get_mcc(void)
+{
+
+    mesg_info *response = NULL;
+    //check port
+    if (!send_message_get_response(GET_NETWORK_MCCMNC,"",0,&response))
+    {
+        CFG_LOG_ERROR("GET_NETWORK_MCCMNC error");
+        dbus_is_ready = false;
+        return false;
+    }
+    CFG_LOG_DEBUG("get mccmnc:%s",response->payload);
+    strncpy(roam_mcc_new,response->payload,response->payload_lenth>8 ?8 : response->payload_lenth);
+    return true;
+}
+
+
 static gboolean modem_sim_change_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
 {
-    CFG_LOG_DEBUG("network mccmnc chanage mcc %s ", value);
+    CFG_LOG_INFO("<<<<<<<<<------network mccmnc chanage mcc %s ------>>>>>>>>>>>>", value);
     sem_t *sem =NULL;
 
-    if (userdata == NULL)
+    if (value == NULL)
     {
         return TRUE;
     }
     else
     {
-        fibo_set_sim_change(true);
-        sem = get_mcc_sem_id();
-        if(NULL != sem)
+        if(!cfg_get_mcc())
         {
-            sem_post(sem);
+            CFG_LOG_ERROR("[get mcc] error");
+            return TRUE;
         }
-        CFG_LOG_DEBUG("recive userdate :%s\n", (char *)userdata);
-        strncpy(mcc, userdata, strlen(userdata));
-        CFG_LOG_DEBUG("network MCCMNC:%s\n", (char *)mcc);
+
+        send_event_by_mcc_change();
     }
+}
+
+gboolean cfg_get_port_state(void)
+{
+    mesg_info *response = NULL;
+    //check port
+    if (!send_message_get_response(GET_PORT_STATE,"",0,&response))
+    {
+        CFG_LOG_ERROR("GET_PORT_STATE error");
+        dbus_is_ready = false;
+        return false;
+    }
+    CFG_LOG_DEBUG("get port state:%s",response->payload);
+    if(0 == strncmp(response->payload, "normal",strlen("normal")))
+    {
+        CFG_LOG_INFO("current port is ready!");
+        dbus_is_ready = true;
+        if(static_config_set())
+        {
+            return true;
+        }
+    }
+    else
+    {
+        dbus_is_ready = false;
+        CFG_LOG_INFO("modem is not ready!");
+    }
+    return true;
+}
+
+
+static gboolean cfg_modem_status_callback(FibocomGdbusHelper *object, const char *value, gpointer userdata)
+{
+    int          ret = 0;
+
+    CFG_LOG_INFO("<<<<<<<<<------modem_status_callback %s ------>>>>>>>>>>>>", value);
+
+    if(value == NULL)
+    {
+        return TRUE;
+    }
+    else
+    {
+        dbus_is_ready = true;
+        if(!cfg_get_port_state())
+        {
+            CFG_LOG_ERROR("[get_port_state] error");
+            return TRUE;
+        }
+    }
+
+    return TRUE;
 }
 
 
@@ -141,25 +234,6 @@ bool get_static_config_flg(void)
     return static_config_end;
 }
 
-static gboolean service_status_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
-{
-    CFG_LOG_DEBUG("Revice signal : %s", value);
-    /* sem_t *sem =NULL; */
-
-    // if(strcmp(value, "413c:8213") != 0)
-    if (strcmp(value, "4d75") != 0)
-    {
-        CFG_LOG_DEBUG("[-------------------------------]Modem not exit!\n");
-    }
-    /* test thread */
-    /* sem = get_mcc_sem_id();
-    if(NULL != sem)
-    {
-        sem_post(sem);
-    } */
-}
-
-static bool dbus_is_ready = false;
 
 static void owner_name_change_notify(GObject *object, GParamSpec *pspec, gpointer userdata)
 {
@@ -168,20 +242,12 @@ static void owner_name_change_notify(GObject *object, GParamSpec *pspec, gpointe
 
     if (NULL != pname_owner)
     {
-        CFG_LOG_DEBUG("DBus service is ready!\n");
-        if (!get_static_config_flg())
-        {
-            if (fibo_get_config_and_set())
-            {
-                set_static_config_flg(true);
-                CFG_LOG_DEBUG("service_status config successfully!");
-            }
-            else
-            {
-                CFG_LOG_DEBUG("service_status config fail!");
-            }
-        }
+        CFG_LOG_INFO("helper service is ready!\n");
         dbus_is_ready = true;
+        if(static_config_set())
+        {
+            return ;
+        }
         g_free(pname_owner);
     }
     else
@@ -191,6 +257,7 @@ static void owner_name_change_notify(GObject *object, GParamSpec *pspec, gpointe
         g_free(pname_owner);
     }
 }
+
 
 void fibo_set_sim_change(bool value)
 {
@@ -208,7 +275,7 @@ bool fibo_get_sim_reign(void)
 }
 char *fibo_get_mcc_value(void)
 {
-    return mcc;
+    return roam_mcc_new;
 }
 
 static void *fibo_dbus_run(void* arg)
@@ -302,9 +369,9 @@ bool register_dbus_event_handler(void)
     // 注册signal处理函数
     CFG_LOG_DEBUG("register_dbus_event_handler satrt");
     g_signal_connect(proxy, "notify::g-name-owner", G_CALLBACK(owner_name_change_notify), NULL);
-    /* g_signal_connect(proxy, "modem-status", G_CALLBACK(modem_status_handler), NULL);
-    g_signal_connect(proxy, "service-status", G_CALLBACK(service_status_handler), NULL); */
+    g_signal_connect(proxy, "cellular-state",G_CALLBACK(cfg_modem_status_callback),NULL);
     g_signal_connect(proxy, "roam-region", G_CALLBACK(modem_sim_change_handler), NULL);
+    
     CFG_LOG_DEBUG("register_dbus_event_handler end");
 }
 
@@ -319,15 +386,13 @@ static bool send_message_to_helper(e_command_cid cid, char *payload, int len, me
     gint payloadlen = 0;
     gchar *atresp = NULL;
 
-    indata = g_variant_new("((ii)iis)", CONFIGSERVICE, cid, GET_DATA_SUCCESS, len, payload);
-
+    indata = g_variant_new("((ii)iis)", CONFIGSRV, cid, GET_DATA_SUCCESS, len, payload);
     fibocom_gdbus_helper_call_send_mesg_sync(proxy, (GVariant *)indata, (GVariant **)&outdata, NULL, &callError);
     if (callError == NULL)
     {
         g_variant_get(outdata, "((ii)iis)", &serviceid, &rtcid, &rtcode, &payloadlen, &atresp);
-        CFG_LOG_DEBUG("call_atcommand_sync success:serviceid:%d, cid:%d, code:%d,payloadlen:%d, atresp:%s",
-                      serviceid, cid, rtcode, payloadlen, atresp);
-
+        /* CFG_LOG_DEBUG("call_atcommand_sync success:serviceid:%d, cid:%d, code:%d,payloadlen:%d, atresp:%s",
+                      serviceid, cid, rtcode, payloadlen, atresp); */
         *response = malloc(sizeof(mesg_info) + payloadlen + 1);
         if (NULL != *response)
         {
@@ -358,17 +423,6 @@ static bool send_message_to_helper(e_command_cid cid, char *payload, int len, me
     }
 }
 
-bool get_dbus_connect_flg(void)
-{
-    if (NULL == proxy)
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
 
 bool send_message_get_response(e_command_cid cid, char *payload, int len, mesg_info **response)
 {
@@ -378,13 +432,17 @@ bool send_message_get_response(e_command_cid cid, char *payload, int len, mesg_i
         CFG_LOG_DEBUG("gdbus is not ready disconnect");
         return false;
     }
-
     for (i = 0; i < 3; i++)
     {
+        if(NULL != *response)
+        {
+            free(*response);
+        }
         send_message_to_helper(cid, payload, len, response);
         if (NULL == (*response))
         {
             CFG_LOG_DEBUG("call_atcommand_sync error");
+            sleep(3);
             continue;
         }
         if (cid != (*response)->header.command_cid)
@@ -393,32 +451,29 @@ bool send_message_get_response(e_command_cid cid, char *payload, int len, mesg_i
         }
         if (GET_DATA_SUCCESS == (*response)->rtcode)
         {
-            // CFG_LOG_DEBUG("response data serviceid:%d, cid:%d, code:%d,payloadlen:%d, atresp:%s",\
+            CFG_LOG_DEBUG("response data serviceid:%d, cid:%d, code:%d,payloadlen:%d, atresp:%s",\
                           (*response)->header.service_id, (*response)->header.command_cid, (*response)->rtcode, (*response)->payload_lenth, (*response)->payload);
-            break;
+            return true;
         }
-        else if (SERVICE_BUSY == (*response)->rtcode || GET_DATA_FAIL == (*response)->rtcode)
+        else if (SERVICE_BUSY == (*response)->rtcode || GET_DATA_FAIL == (*response)->rtcode || (i +1 >= 3))
         {
             CFG_LOG_DEBUG("get message error,continue");
-            free(*response);
+            sleep(3);
             continue;
         }
     }
-
-    if (i >= 3 || NULL == *response)
+    if(NULL != *response)
     {
-        CFG_LOG_DEBUG("get message error");
-        return false;
+        return true;
     }
-
-    return true;
+    return false;
 }
 
 void send_message_test()
 {
     mesg_info *response = NULL;
     char *msg = "hello!";
-    CFG_LOG_DEBUG("len:%d\n", (int)strlen(msg));
+    CFG_LOG_DEBUG("len:%d", (int)strlen(msg));
     send_message_get_response(GET_BODYSAR_STATUS, msg, strlen(msg), &response);
     free(response);
 }

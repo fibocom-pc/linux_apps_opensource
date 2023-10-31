@@ -6,7 +6,11 @@ if [[ -f ${path}fibo_config.service   &&  -f ${path}fibo_flash.service  &&   -f 
   systemctl stop fibo_config.service fibo_flash.service fibo_helper.service fibo_helper_mbim.service
 fi
 flash_srv_path="/opt/fibocom/fibo_flash_service/FwFlashSrv"
-
+fcc_lock_path="/usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d"
 if [[ -f ${flash_srv_path} ]]; then
     rm -rf ${flash_srv_path}
 fi
+
+if [[ -d ${fcc_lock_path} ]]; then
+    rm -rf ${fcc_lock_path}
+fi 

@@ -27,7 +27,7 @@
 GMainLoop   *gMainLoop            = NULL;
 
 static gint
-fibo_helper_control_receiver_init()
+fibo_helperd_control_receiver_init()
 {
     int      ret                   = RET_ERROR;
     GThread  *mbim_ctl_rcv_thread  = NULL;
@@ -96,7 +96,7 @@ gint main(gint argc, char const *argv[])
     g_type_init ();
     #endif
 
-    ret = fibo_helper_control_receiver_init();
+    ret = fibo_helperd_control_receiver_init();
     if (ret != RET_OK) {
         FIBO_LOG_CRITICAL("fibo_helper_control_receiver_init failed! exit mainloop!\n");
         return ret;
@@ -112,14 +112,13 @@ gint main(gint argc, char const *argv[])
     if (ret != RET_OK) {
         FIBO_LOG_CRITICAL("fibocom_hwreset_gpio_init failed!\n");
     }
-
+/*
     ret = fibo_helper_mmevent_register();
     if (ret != RET_OK) {
         FIBO_LOG_CRITICAL("fibo_helper_mmevent_register failed! exit mainloop!\n");
         return ret;
     }
-
-
+*/
 
     // main loop go cycle.
     gMainLoop = g_main_loop_new (NULL, FALSE);

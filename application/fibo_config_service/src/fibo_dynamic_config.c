@@ -11,11 +11,11 @@
  * GNU General Public License for more details.
  * @file dynamic_config.c
  * @author ziqi.zhao@fibocom.com (zhaoziqi)
- * @brief 
+ * @brief
  * @version 1.0
  * @date 2023-09-23
- * 
- * 
+ *
+ *
  **/
 
 #include <string.h>
@@ -25,73 +25,43 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
-#include<semaphore.h>
-#include<sys/sem.h>
-#include "cfg_log.h"
-#include "static_config.h"
-#include "config_helper.h"
+#include <semaphore.h>
+#include <sys/sem.h>
+#include "fibo_cfg_log.h"
+#include "fibo_static_config.h"
+#include "fibo_config_helper.h"
+#include "fibo_dynamic_config.h"
 
-#define STATUS_IS_NO "0"
-#define STATUS_IS_HW "1"
-#define STATUS_IS_SW "2"
+#define STATUS_IS_NO "-1"
+#define STATUS_IS_HW "0"
+#define STATUS_IS_SW "1"
 
 #define STATUS_IS_ENABLE "1"
 #define STATUS_IS_DISABLE "0"
-
-typedef enum
-{
-    MCCMNC_CHANGE = 1,
-    DEVICE_MODE_CHANGE,
-} mesage_type;
-
-typedef struct msg_st_s
-{
-    long int msg_type;
-    char mccmnc[4];
-    char device_mode;
-    char sensor1;
-    char sensor2;
-    char sensor3;
-} msg_st_t;
-
-
-typedef struct device_mode_sensor_s
-{
-    char device_mode;
-    char sensor1;
-    char sensor2;
-    char sensor3;
-} device_mode_sensor_t;
 
 #define GET_CURRENT_MODEM_CONFIG(cid, status, type)                                                         \
     do                                                                                                      \
     {                                                                                                       \
         mesg_info *response = NULL;                                                                         \
-        if (!get_dbus_connect_flg())                                                                        \
-        {                                                                                                   \
-            status = STATUS_DBUS_ERROR;                                                                     \
-            CFG_LOG_ERROR("dbus can not send message");                                                     \
-        }                                                                                                   \
-        CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                                                  \
+        CFG_LOG_INFO("send message to dbus ,cid:%d", cid)                                                   \
         if (send_message_get_response(cid, "", 0, &response))                                               \
         {                                                                                                   \
             if (GET_DATA_SUCCESS == response->rtcode)                                                       \
             {                                                                                               \
-                status = GET_DATA_SUCCESS;                                                                  \
-                CFG_LOG_INFO("set cid:%d success!", cid);                                                   \
+                CFG_LOG_DEBUG("set cid:%d success!", cid);                                                  \
                 if (STATUS_QUERY == type)                                                                   \
                 {                                                                                           \
-                    if (0 == strncmp(response->payload, STATUS_IS_NO, strlen(STATUS_IS_NO)))                \
-                    {                                                                                       \
-                        status = STATUS_OFF;                                                                 \
-                    }                                                                                       \
-                    else if (0 == strncmp(response->payload, STATUS_IS_HW, strlen(STATUS_IS_HW)))           \
+                    if (0 == strncmp(response->payload, STATUS_IS_HW, strlen(STATUS_IS_HW)))                \
                     {                                                                                       \
                         status = STATUS_HW;                                                                 \
                     }                                                                                       \
                     else if (0 == strncmp(response->payload, STATUS_IS_SW, strlen(STATUS_IS_SW)))           \
                     {                                                                                       \
                         status = STATUS_SW;                                                                 \
+                    }                                                                                       \
+                    else if (0 == strncmp(response->payload, STATUS_IS_NO, strlen(STATUS_IS_NO)))           \
+                    {                                                                                       \
+                        status = STATUS_OFF;                                                                \
                     }                                                                                       \
                     else                                                                                    \
                     {                                                                                       \
@@ -118,13 +88,13 @@ typedef struct device_mode_sensor_s
             }                                                                                               \
             else                                                                                            \
             {                                                                                               \
-                status = GET_DATA_FAIL;                                                                     \
+                status = STATUS_UNKNOWN;                                                                    \
                 CFG_LOG_ERROR("set cid:%d fail!", cid);                                                     \
             }                                                                                               \
         }                                                                                                   \
         else                                                                                                \
         {                                                                                                   \
-            status = GET_DATA_FAIL;                                                                         \
+            status = STATUS_UNKNOWN;                                                                        \
             CFG_LOG_ERROR("send message error");                                                            \
         }                                                                                                   \
         if (NULL != response)                                                                               \
@@ -134,38 +104,33 @@ typedef struct device_mode_sensor_s
         }                                                                                                   \
     } while (0);
 
-#define GET_CURRENT_MODEM_CONFIG_DATA(cid, status, type, rsppayload, rsp_len)       \
+#define GET_CURRENT_MODEM_CONFIG_DATA(cid, status, rsppayload, rsp_len)             \
     do                                                                              \
     {                                                                               \
         mesg_info *response = NULL;                                                 \
-        if (!get_dbus_connect_flg())                                                \
-        {                                                                           \
-            status = STATUS_DBUS_ERROR;                                             \
-            CFG_LOG_ERROR("dbus can not send message");                             \
-        }                                                                           \
         CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                          \
         if (send_message_get_response(cid, "", 0, &response))                       \
         {                                                                           \
             if (GET_DATA_SUCCESS == response->rtcode)                               \
             {                                                                       \
                 status = GET_DATA_SUCCESS;                                          \
-                CFG_LOG_INFO("set cid:%d success!", cid);                           \
-                if (DATA_QUERY == type)                                             \
+                rsppayload = malloc(response->payload_lenth + 1);                   \
+                if (NULL != rsppayload)                                             \
                 {                                                                   \
-                    status = GET_DATA_SUCCESS;                                      \
+                    memset(rsppayload, 0, response->payload_lenth + 1);             \
                     memcpy(rsppayload, response->payload, response->payload_lenth); \
                     rsp_len = response->payload_lenth;                              \
                 }                                                                   \
             }                                                                       \
             else                                                                    \
             {                                                                       \
-                status = GET_DATA_FAIL;                                             \
+                status = STATUS_UNKNOWN;                                            \
                 CFG_LOG_ERROR("set cid:%d fail!", cid);                             \
             }                                                                       \
         }                                                                           \
         else                                                                        \
         {                                                                           \
-            status = GET_DATA_FAIL;                                                 \
+            status = STATUS_UNKNOWN;                                                \
             CFG_LOG_ERROR("send message error");                                    \
         }                                                                           \
         if (NULL != response)                                                       \
@@ -179,11 +144,6 @@ typedef struct device_mode_sensor_s
     do                                                                                                                \
     {                                                                                                                 \
         mesg_info *response = NULL;                                                                                   \
-        if (!get_dbus_connect_flg())                                                                                  \
-        {                                                                                                             \
-            status = STATUS_DBUS_ERROR;                                                                               \
-            CFG_LOG_ERROR("dbus can not send message");                                                               \
-        }                                                                                                             \
         if (send_message_get_response(cid, payload, len, &response))                                                  \
         {                                                                                                             \
             if (GET_DATA_SUCCESS == response->rtcode)                                                                 \
@@ -193,19 +153,13 @@ typedef struct device_mode_sensor_s
             }                                                                                                         \
             else                                                                                                      \
             {                                                                                                         \
-                status = GET_DATA_FAIL;                                                                               \
+                status = STATUS_UNKNOWN;                                                                              \
                 CFG_LOG_ERROR("set cid:%d fail!", cid);                                                               \
-                if (NULL != response)                                                                                 \
-                {                                                                                                     \
-                    free(response);                                                                                   \
-                    response = NULL;                                                                                  \
-                }                                                                                                     \
-                return false;                                                                                         \
             }                                                                                                         \
         }                                                                                                             \
         else                                                                                                          \
         {                                                                                                             \
-            status = GET_DATA_FAIL;                                                                                   \
+            status = STATUS_UNKNOWN;                                                                                  \
             CFG_LOG_INFO("set cid:%d ,retcode:%d,error!", cid, ((response == NULL) ? UNKNOW_CODE : response->rtcode)) \
         }                                                                                                             \
         if (NULL != response)                                                                                         \
@@ -215,12 +169,10 @@ typedef struct device_mode_sensor_s
         }                                                                                                             \
     } while (0);
 
-static sem_t mcc_sem_id;
-static sem_t device_sem_id;
 static int msg_id = -1;
+static device_mode_sensor_t old_data = {0};
 
-
-int get_data_from_file(const char *key)
+int get_dev_sensor_from_file(const char *key)
 {
     FILE *fp = NULL;
     int code = 0;
@@ -228,7 +180,7 @@ int get_data_from_file(const char *key)
     char strBuf[64] = {0};
     // return code;
 
-    fp = fopen("./test.txt", "r");
+    fp = fopen("/opt/fibocom/fibo_config_service/devicemode_sensor.txt", "r");
     if (fp == NULL)
     {
         // CFG_LOG_ERROR("can not open file:%s", key);
@@ -253,7 +205,11 @@ int get_device_mode()
     int mode = 0;
     /* *****test start ***** */
     char *key = "devicemode";
-    mode = get_data_from_file(key);
+    mode = get_dev_sensor_from_file(key);
+    if (-1 == mode)
+    {
+        mode = 0;
+    }
     // CFG_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
     /* *****test end ***** */
     return mode;
@@ -264,7 +220,11 @@ int get_sensor1()
     int sensor = 0;
     /* *****test start ***** */
     char *key = "sensor1";
-    sensor = get_data_from_file(key);
+    sensor = get_dev_sensor_from_file(key);
+    if (-1 == sensor)
+    {
+        sensor = 0;
+    }
     // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
@@ -275,7 +235,11 @@ int get_sensor2()
     int sensor = 0;
     /* *****test start ***** */
     char *key = "sensor2";
-    sensor = get_data_from_file(key);
+    sensor = get_dev_sensor_from_file(key);
+    if (-1 == sensor)
+    {
+        sensor = 0;
+    }
     // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
@@ -286,50 +250,66 @@ int get_sensor3()
     int sensor = 0;
     /* *****test start ***** */
     char *key = "sensor3";
-    sensor = get_data_from_file(key);
+    sensor = get_dev_sensor_from_file(key);
+    if (-1 == sensor)
+    {
+        sensor = 0;
+    }
     // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
 }
 
-static void send_event_by_mcc_change(int msg_id, char *mccmnc_old)
+int get_index_from_file(const char *key)
 {
-    int result = 0;
-    char *mccmnc_new = NULL;
-    msg_st_t msg = {0};
+    FILE *fp = NULL;
+    int code = 0;
+    char *p = NULL;
+    bool found = false;
+    char strBuf[64] = {0};
+    // return code;
 
-    int msg_len = sizeof(msg_st_t) - sizeof(long int);
-
-    fibo_set_disableesim_for_mcc();
-    fibo_set_sim_change(false);
-    mccmnc_new = fibo_get_mcc_value();
-    CFG_LOG_DEBUG("get mcc success,mccmnc_new:%s", mccmnc_new);
-    if (mccmnc_new == NULL)
+    fp = fopen("/opt/fibocom/fibo_config_service/bios_index.txt", "r");
+    if (fp == NULL)
     {
-        // goto dev_monitor;
-        CFG_LOG_ERROR("get mcc error");
-        return;
+        // CFG_LOG_ERROR("can not open file:%s", key);
+        return -1;
     }
-    if (0 != strcmp(mccmnc_old, mccmnc_new))
+    while (fgets(strBuf, 64, fp))
     {
-        msg.msg_type = MCCMNC_CHANGE;
-        strncpy(msg.mccmnc, mccmnc_new, sizeof(msg.mccmnc));
-        result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
-        if (result)
+        if(found)
         {
-            CFG_LOG_ERROR("send mccmnc change event error,result:%d", result);
+            code = atoi(strBuf);
+            break;
         }
-        else
+        
+        if(NULL != strstr(strBuf, key))
         {
-            CFG_LOG_DEBUG("send msg success,mcc change mccmnc_new:%s", mccmnc_new);
-            strncpy(mccmnc_old, mccmnc_new, strlen(mccmnc_new));
+            found = true;
         }
     }
+    fclose(fp);
+    return code;
 }
 
-static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, device_mode_sensor_t *old_data, device_mode_sensor_t *new_data)
+int get_index_from_bios(char *key)
 {
-    
+    int index = 0;
+    /* *****test start ***** */
+    index = get_index_from_file(key);
+    if (-1 == index)
+    {
+        index = 0;
+    }
+    // CFG_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
+    /* *****test end ***** */
+    return index;
+}
+
+
+static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, device_mode_sensor_t *new_data)
+{
+
     int result = 0;
     msg_st_t msg = {0};
     int msg_len = sizeof(msg_st_t) - sizeof(long int);
@@ -341,99 +321,36 @@ static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, 
     {
         // do nothing
     }
-    else if (SARMAP_TYPE_2 == map_type)
+    else
     {
-        if (old_data->device_mode != new_data->device_mode)
+        if (old_data.device_mode == new_data->device_mode && old_data.sensor1 == new_data->sensor1 && old_data.sensor2 == new_data->sensor2 && old_data.sensor3 == new_data->sensor3)
         {
-            msg.msg_type = DEVICE_MODE_CHANGE;
-            msg.device_mode = new_data->device_mode;
-            result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
-            if (-1 == result)
-            {
-                CFG_LOG_ERROR("send mccmnc change event error");
-            }
-            else
-            {
-                old_data->device_mode = new_data->device_mode;
-                CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d",
-                              (int)map_type, (int)new_data->device_mode);
-            }
+            return;
         }
-    }
-    else if (SARMAP_TYPE_3 == map_type)
-    {
-        if (old_data->device_mode != new_data->device_mode || old_data->sensor1 != new_data->sensor1)
+        CFG_LOG_INFO("devicemode and sensor changed,send message");
+        msg.msg_type = DEVICE_MODE_CHANGE;
+        msg.device.device_mode = new_data->device_mode;
+        msg.device.sensor1 = new_data->sensor1;
+        msg.device.sensor2 = new_data->sensor2;
+        msg.device.sensor3 = new_data->sensor3;
+        result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
+        if (-1 == result)
         {
-            msg.msg_type = DEVICE_MODE_CHANGE;
-            msg.device_mode = new_data->device_mode;
-            msg.sensor1 = new_data->sensor1;
-            result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
-            if (-1 == result)
-            {
-                CFG_LOG_ERROR("send mccmnc change event error");
-            }
-            else
-            {
-                old_data->device_mode = new_data->device_mode;
-                old_data->sensor1 = new_data->sensor1;
-                CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d",
-                              (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1);
-            }
+            CFG_LOG_ERROR("send mccmnc change event error");
         }
-    }
-    else if (SARMAP_TYPE_4 == map_type)
-    {
-        if (old_data->device_mode != new_data->device_mode || old_data->sensor1 != new_data->sensor1 || old_data->sensor2 != new_data->sensor2)
+        else
         {
-            msg.msg_type = DEVICE_MODE_CHANGE;
-            msg.device_mode = new_data->device_mode;
-            msg.sensor1 = new_data->sensor1;
-            msg.sensor2 = new_data->sensor2;
-            result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
-            if (-1 == result)
-            {
-                CFG_LOG_ERROR("send mccmnc change event error");
-            }
-            else
-            {
-                old_data->device_mode = new_data->device_mode;
-                old_data->sensor1 = new_data->sensor1;
-                old_data->sensor2 = new_data->sensor2;
-                CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d",
-                              (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1, (int)new_data->sensor2);
-            }
-        }
-    }
-    else if (SARMAP_TYPE_5 == map_type)
-    {
-        if (old_data->device_mode != new_data->device_mode || old_data->sensor1 != new_data->sensor1 || old_data->sensor2 != new_data->sensor2 || old_data->sensor3 != new_data->sensor3)
-        {
-            msg.msg_type = DEVICE_MODE_CHANGE;
-            msg.device_mode = new_data->device_mode;
-            msg.sensor1 = new_data->sensor1;
-            msg.sensor2 = new_data->sensor2;
-            msg.sensor3 = new_data->sensor3;
-            result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
-            if (-1 == result)
-            {
-                CFG_LOG_ERROR("send mccmnc change event error");
-            }
-            else
-            {
-                old_data->device_mode = new_data->device_mode;
-                old_data->sensor1 = new_data->sensor1;
-                old_data->sensor2 = new_data->sensor2;
-                old_data->sensor3 = new_data->sensor3;
-                CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
-                              (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1, (int)new_data->sensor2, (int)new_data->sensor3);
-            }
+            /*  old_data.device_mode = new_data->device_mode;
+             old_data.sensor1 = new_data->sensor1;
+             old_data.sensor2 = new_data->sensor2;
+             old_data.sensor3 = new_data->sensor3; */
+            CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
+                          (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1, (int)new_data->sensor2, (int)new_data->sensor3);
         }
     }
 }
 
-
-
-static bool msg_init()
+bool msg_init(void)
 {
     key_t key = ftok(".", 'z');
 
@@ -447,59 +364,44 @@ static bool msg_init()
     return true;
 }
 
-sem_t *get_mcc_sem_id(void)
+int get_msg_id(void)
 {
-    return &mcc_sem_id;
-}
-
-sem_t *get_device_sem_id(void)
-{
-    return &device_sem_id;
+    return msg_id;
 }
 
 void *event_from_file_thread(void *arg)
 {
-    char mccmnc_old[16] = {0};
-
     int result = 0;
 
     sar_map_type map_type;
-
-    device_mode_sensor_t old_data = {0};
     device_mode_sensor_t new_data = {0};
 
-    if(!msg_init())
-    {
-        CFG_LOG_ERROR("msg_init failed");
-        return NULL;
-    }
     map_type = fibo_get_sarmaptype();
     while (1)
     {
-        if (false == fibo_get_sim_reign())
-        {
-            sleep(1); // sim not region not dynamic config
-            continue;
-        }
-        if (fibo_get_sim_change())
-        {
-            send_event_by_mcc_change(msg_id, mccmnc_old);
-            CFG_LOG_DEBUG("mccmnc_old:%s", mccmnc_old);
-        }
         if (map_type >= SARMAP_TYPE_1 && map_type <= SARMAP_TYPE_5)
         {
-            new_data.device_mode = get_device_mode();
-            new_data.sensor1 = get_sensor1();
-            new_data.sensor2 = get_sensor2();
-            new_data.sensor3 = get_sensor3();
-            
-            send_event_by_device_mode_change(msg_id,map_type,&old_data,&new_data);
-            
+            if (map_type >= SARMAP_TYPE_2)
+            {
+                new_data.device_mode = get_device_mode();
+            }
+            if (map_type >= SARMAP_TYPE_3)
+            {
+                new_data.sensor1 = get_sensor1();
+            }
+            if (map_type >= SARMAP_TYPE_4)
+            {
+                new_data.sensor2 = get_sensor2();
+            }
+            if (map_type >= SARMAP_TYPE_5)
+            {
+                new_data.sensor3 = get_sensor3();
+            }
+            send_event_by_device_mode_change(msg_id, map_type, &new_data);
         }
         sleep(1);
     }
 }
-
 
 void *event_from_signal_thread(void *arg)
 {
@@ -509,94 +411,72 @@ void *event_from_signal_thread(void *arg)
     device_mode_sensor_t old_data = {0};
     device_mode_sensor_t new_data = {0};
 
-    if(!msg_init())
-    {
-        CFG_LOG_ERROR("msg_init failed");
-        return NULL;
-    }
-
-    if(0 != sem_init(&mcc_sem_id, 0, 0))
-    {
-        CFG_LOG_ERROR("mcc_sem failed");
-        return NULL;
-    }
-    
-    if(0 != sem_init(&device_sem_id, 0, 0))
-    {
-        CFG_LOG_ERROR("device_sem failed");
-        return NULL;
-    }
-
     map_type = fibo_get_sarmaptype();
 
-    while(1)
+    /* through signal or callback get devicemode and sensor information */
+    if (map_type >= SARMAP_TYPE_1 && map_type <= SARMAP_TYPE_5)
     {
-        if(0 == sem_wait(&mcc_sem_id))
+        if (map_type >= SARMAP_TYPE_2)
         {
-            CFG_LOG_DEBUG("sem_get value");
-            send_event_by_mcc_change(msg_id, mccmnc_old);
-            CFG_LOG_DEBUG("mccmnc_old:%s", mccmnc_old);
-        }
-        else if(0 == sem_wait(&device_sem_id))
-        {
-            CFG_LOG_DEBUG("sem_get value");
             new_data.device_mode = get_device_mode();
-            new_data.sensor1 = get_sensor1();
-            new_data.sensor2 = get_sensor2();
-            new_data.sensor3 = get_sensor3();
-            send_event_by_device_mode_change(msg_id,map_type,&old_data,&new_data);
         }
+        if (map_type >= SARMAP_TYPE_3)
+        {
+            new_data.sensor1 = get_sensor1();
+        }
+        if (map_type >= SARMAP_TYPE_4)
+        {
+            new_data.sensor2 = get_sensor2();
+        }
+        if (map_type >= SARMAP_TYPE_5)
+        {
+            new_data.sensor3 = get_sensor3();
+        }
+        send_event_by_device_mode_change(msg_id, map_type, &new_data);
     }
 }
-
 
 bool get_body_sar_enable(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_BODYSAR_STATUS, status, STATUS_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_BODYSAR_STATUS, status, TYPE_QUERY);
     if (STATUS_ENABLE == status)
     {
         return true;
     }
-    else
-    {
-        return false;
-    }
+    return false;
 }
 
 bool get_body_sar_is_sw_mode(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_BODYSAR_CTRL_MODE, status, TYPE_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_BODYSAR_CTRL_MODE, status, STATUS_QUERY);
     if (STATUS_SW == status)
     {
         return true;
     }
-    return true;
+    return false;
 }
 
 bool get_ta_sar_enable(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_TASAR_STATUS, status, STATUS_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_TASAR_STATUS, status, TYPE_QUERY);
     if (STATUS_ENABLE == status)
     {
         return true;
     }
-    else
-    {
-        return false;
-    }
+    return false;
 }
 
 bool get_ta_sar_is_sw_mode(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_TASAR_CTRL_MODE, status, TYPE_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_TASAR_CTRL_MODE, status, STATUS_QUERY);
     if (STATUS_SW == status)
     {
         return true;
@@ -608,59 +488,61 @@ bool get_antenna_enable(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_ANTENNA_STATUS, status, STATUS_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_ANTENNA_STATUS, status, TYPE_QUERY);
     if (STATUS_ENABLE == status)
     {
         return true;
     }
-    else
-    {
-        return false;
-    }
+    return false;
 }
 
 bool get_antenna_is_sw_mode(void)
 {
     int status = 0;
 
-    GET_CURRENT_MODEM_CONFIG(GET_ANTENNA_CTRL_MODE, status, TYPE_QUERY);
+    GET_CURRENT_MODEM_CONFIG(GET_ANTENNA_CTRL_MODE, status, STATUS_QUERY);
     if (STATUS_SW == status)
     {
         return true;
     }
-    return true;
+    return false;
 }
 
 static bool get_sar_index(msg_st_t *msg, char *mcc, char *index)
 {
-    sar_map_type map_type = 0;
-    char *regulatory = NULL;
-    char wwanconfigid[64] = {0};
     bool result = false;
+    sar_index_para_t input_data = {0};
 
-    strcpy(wwanconfigid, fibo_get_wwanconfigid());
+    strcpy(input_data.wwanconfigid, fibo_get_wwanconfigid());
     if (SLUCTION_TYPE_SW_BIOS == fibo_get_customizationsolutiontype())
     {
-        // reserved
+        // get index from bios reserved
+        char *regulatory = get_region_regulatory(mcc);
+        *index = get_index_from_bios(regulatory);
+        CFG_LOG_INFO("get sar index:%d,from bios", *index);
+        return true;
     }
     else if (SLUCTION_TYPE_SW_XML == fibo_get_customizationsolutiontype())
     {
-        map_type = fibo_get_sarmaptype();
+        input_data.sar_map_type = fibo_get_sarmaptype();
 
-        regulatory = get_region_regulatory(mcc);
-        CFG_LOG_DEBUG("wwanconfigid:%s,regulatory:%s", wwanconfigid, regulatory);
+        input_data.standard = get_region_regulatory(mcc);
+        CFG_LOG_DEBUG("wwanconfigid:%s,regulatory:%s", input_data.wwanconfigid, input_data.standard);
         CFG_LOG_DEBUG("get sar wwanconfigid:%s device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d",
-                      wwanconfigid, msg->device_mode, msg->sensor1,
-                      msg->sensor2, msg->sensor3);
-        result = fibo_get_sar_index(map_type, wwanconfigid, regulatory, msg->device_mode, msg->sensor1,
-                                   msg->sensor2, msg->sensor3, index);
-        CFG_LOG_DEBUG("get sar index:%d,result:%d", *index, result);
+                      input_data.wwanconfigid, msg->device.device_mode, msg->device.sensor1,
+                      msg->device.sensor2, msg->device.sensor3);
+        input_data.device.device_mode = msg->device.device_mode;
+        input_data.device.sensor1 = msg->device.sensor1;
+        input_data.device.sensor2 = msg->device.sensor2;
+        input_data.device.sensor3 = msg->device.sensor3;
+        result = fibo_get_sar_index(&input_data, index);
+        CFG_LOG_INFO("get sar index:%d,result:%d", *index, result);
         return result;
     }
     return false;
 }
 
-static bool get_antenna_index(msg_st_t *msg)
+static bool set_antenna_index(msg_st_t *msg)
 {
     char index = 0;
     char wwanconfigid[64] = {0};
@@ -669,7 +551,7 @@ static bool get_antenna_index(msg_st_t *msg)
     bool result = false;
 
     strcpy(wwanconfigid, fibo_get_wwanconfigid());
-    if (ANTENNA_TYPE_DISABLE == fibo_get_antturnerstate())
+    if (STATUS_OFF == fibo_get_antturnerstate())
     {
         return false;
     }
@@ -677,7 +559,7 @@ static bool get_antenna_index(msg_st_t *msg)
     {
         if (get_antenna_is_sw_mode())
         {
-            result = fibo_get_antenna_index(wwanconfigid, msg->device_mode, &index);
+            result = fibo_get_antenna_index(wwanconfigid, msg->device.device_mode, &index);
             if (!result)
             {
                 CFG_LOG_ERROR("not find index from xml");
@@ -693,9 +575,10 @@ static bool get_antenna_index(msg_st_t *msg)
             }
         }
     }
+    return false;
 }
 
-bool set_sar_config(msg_st_t *msg, char *mcc, bool is_simchange)
+static bool set_sar_index(msg_st_t *msg, char *mcc, bool is_simchange)
 {
     char sar_index = 0;
     sar_type sartype = SAR_TYPE_UNKNOWN;
@@ -712,7 +595,7 @@ bool set_sar_config(msg_st_t *msg, char *mcc, bool is_simchange)
         {
             // reserved
         }
-        else if (DOWN_LOAD_IMAGE == get_sardownloadtype())
+        else if (DOWN_LOAD_FLASH == get_sardownloadtype())
         {
             // The image is processed by the flash service
         }
@@ -768,12 +651,72 @@ bool set_sar_config(msg_st_t *msg, char *mcc, bool is_simchange)
             }
         }
     }
+    return false;
 }
 
-bool set_sar_antenna_config(msg_st_t *msg, char *mcc, bool is_simchange)
+static bool set_sar_antenna_config(msg_st_t *msg, char *mcc, bool is_simchange)
 {
-    set_sar_config(msg, mcc, is_simchange);
-    get_antenna_index(msg);
+
+    if (old_data.device_mode == msg->device.device_mode && old_data.sensor1 == msg->device.sensor1 && old_data.sensor2 == msg->device.sensor2 && old_data.sensor3 == msg->device.sensor3)
+    {
+        CFG_LOG_INFO("devicemode and sensor not change not send index...")
+        return true;
+    }
+    CFG_LOG_DEBUG("[old]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[new]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[mcc]:%s",
+                  old_data.device_mode, old_data.sensor1,
+                  old_data.sensor2, old_data.sensor3, msg->device.device_mode, msg->device.sensor1,
+                  msg->device.sensor2, msg->device.sensor3, mcc);
+    set_sar_index(msg, mcc, is_simchange);
+    set_antenna_index(msg);
+
+    old_data.device_mode = msg->device.device_mode;
+    old_data.sensor1 = msg->device.sensor1;
+    old_data.sensor2 = msg->device.sensor2;
+    old_data.sensor3 = msg->device.sensor3;
+
+    return true;
+}
+
+void get_regulatory_from_xml(char *mcc,char *regulatory)
+{
+    char *data = NULL;
+    char mcc_data[16] = {0};
+    if(NULL == mcc)
+    {
+        CFG_LOG_DEBUG("mcc is NULL,using default");
+        strncpy(mcc_data, "default", strlen("default"));
+    }
+    else
+    {
+        strncpy(mcc_data, mcc, strlen(mcc));
+    }
+    
+    data = get_region_regulatory(mcc);
+    if(NULL == data)
+    {
+        strncpy(regulatory, "FCC", strlen("FCC"));
+    }
+    else
+    {
+        strncpy(regulatory, data, strlen(data));
+    }
+}
+
+void set_regulatory_to_bios(char *regulatory)
+{
+    /* set data to bios  reserved*/
+    if(0 == strncmp(regulatory,"FCC",strlen("FCC")))
+    {
+        // set 1 regulatory to bios
+    }
+    else if(0 == strncmp(regulatory,"CE",strlen("CE")))
+    {
+        // set 2 regulatory to bios
+    }
+    else if(0 == strncmp(regulatory,"ISED",strlen("ISED")))
+    {
+        //set 3  regulatory to bios
+    }
 }
 
 void *dynamic_thread(void *arg)
@@ -785,18 +728,12 @@ void *dynamic_thread(void *arg)
 
     msg_len = sizeof(msg_st_t) - sizeof(long int);
 
-    if(!msg_init())
-    {
-        CFG_LOG_ERROR("msg_init failed");
-        return NULL;
-    }
-
     while (1)
     {
-        CFG_LOG_DEBUG("recive msg,msg_size************************");
+        CFG_LOG_DEBUG("wait mesg...");
         msg_size = msgrcv(msg_id, (void *)&msg, msg_len, 0, 0);
-        CFG_LOG_DEBUG("recive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
-        CFG_LOG_DEBUG("recive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device_mode, msg.sensor1, msg.sensor2, msg.sensor3);
+        CFG_LOG_DEBUG("<<<<<--- recive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
+        CFG_LOG_DEBUG("recive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device.device_mode, msg.device.sensor1, msg.device.sensor2, msg.device.sensor3);
         if (msg_size >= 0)
         {
             if (msg.msg_type == MCCMNC_CHANGE)
@@ -804,7 +741,11 @@ void *dynamic_thread(void *arg)
                 strcpy(mcc_data, msg.mccmnc);
                 if (SLUCTION_TYPE_SW_BIOS == fibo_get_customizationsolutiontype())
                 {
-                    // reserved
+                    char regulatory[16] = {0};
+                    get_regulatory_from_xml(mcc_data,regulatory);
+
+                    /* set  regulatory to bios*/
+                    set_regulatory_to_bios(regulatory);
                 }
                 else if (SLUCTION_TYPE_SW_XML == fibo_get_customizationsolutiontype())
                 {
@@ -813,18 +754,22 @@ void *dynamic_thread(void *arg)
             }
             else if (msg.msg_type == DEVICE_MODE_CHANGE)
             {
-
+                char *data = fibo_get_mcc_value();
+                if (data == NULL)
+                {
+                    strncpy(mcc_data, "default", strlen("default"));
+                }
+                else
+                {
+                    strncpy(mcc_data, data, strlen(data));
+                }
                 set_sar_antenna_config(&msg, mcc_data, false);
             }
         }
     }
 }
 
-
-
 void dynamic_deinit(void)
 {
-    sem_destroy(&mcc_sem_id);
-    sem_destroy(&device_sem_id);
-    msgctl(msg_id, IPC_RMID,NULL);
+    msgctl(msg_id, IPC_RMID, NULL);
 }

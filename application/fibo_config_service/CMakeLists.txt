@@ -18,8 +18,10 @@ cmake_minimum_required(VERSION 3.6)
 
 project(fibo_config_service)
 
+find_package(LibXml2 REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0)
+pkg_check_modules(deps REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0 gio-unix-2.0)
+
 
 find_program(GDBUSCODEGEN NAMES gdbus-codegen)
 if (NOT GDBUSCODEGEN)
@@ -35,7 +37,7 @@ add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
 execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fbwwanConfig.ini ${PROJECT_BINARY_DIR})
 set(CONFIG_MAJOR_VERSION 1)
 set(CONFIG_MINOR_VERSION 0)
-set(CONFIG_PATCH_VERSION 0)
+set(CONFIG_PATCH_VERSION 1)
 
 set(CONFIG_VERSION_STRING "${CONFIG_MAJOR_VERSION}.${CONFIG_MINOR_VERSION}.${CONFIG_PATCH_VERSION}")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"
@@ -71,6 +73,5 @@ set(source_files generated/fibocom-helper-gdbus-generated.c)
 add_executable(fibo_config ${DIR_SRCS} ${source_files})
 
 target_link_libraries(fibo_config ${PROJECT_BINARY_DIR}/../3rd/iniparser/libiniparser.a)
-target_link_libraries(fibo_config  /usr/lib/x86_64-linux-gnu/libxml2.so dbus-1 udev 
-               gio-2.0 gobject-2.0 glib-2.0 -ldl -lpthread -lm PkgConfig::deps ${CMAKE_DL_LIBS})
+target_link_libraries(fibo_config  LibXml2::LibXml2 -ldl -lpthread -lm PkgConfig::deps ${CMAKE_DL_LIBS})
 
