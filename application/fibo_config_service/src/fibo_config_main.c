@@ -72,7 +72,9 @@ int main(int argc, char **argv)
     {
         if(static_config_set())
         {
-            break;
+            // break;
+            /* No other configuration items are available. Exit after the configuration is complete */
+            return 1;
         }
     }
     if(!msg_init())

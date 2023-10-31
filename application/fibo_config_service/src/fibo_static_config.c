@@ -1427,18 +1427,19 @@ bool fibo_get_config_and_set(void)
 {
     int result = 0;
     result += fibo_set_debug_level();
-    result += fibo_set_fcclock_enable();
+    /* result += fibo_set_fcclock_enable(); */
     result += fibo_set_sim_slots_switch();
-    result += fibo_set_wdisable_enable();
+    /* result += fibo_set_wdisable_enable();
     result += fibo_set_gnss_enable();
     result += fibo_set_band_config_enable();
     result += fibo_set_net_type();
     result += fibo_set_bodysar_type();
     result += fibo_set_tasar_type();
     result += fibo_set_antenna_type();
-    result += fibo_set_disableesim_for_sku();
+    result += fibo_set_disableesim_for_sku(); */
     CFG_LOG_DEBUG("result = %d", result);
-    if (result == 11)
+    /* if (result == 11) */
+    if (result == 2)
     {
         CFG_LOG_DEBUG("set static config successfully!");
         return true;
