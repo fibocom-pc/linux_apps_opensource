@@ -23,7 +23,7 @@ cmake_minimum_required(VERSION 3.6)
 # minor = Small design change specific to any operation.
 # macro = small change or bug fix
 
-project(fibocom_linux VERSION 1.0.0)
+project(fibocom_linux VERSION 1.0.5)
 
 add_subdirectory (application)
 
@@ -55,8 +55,7 @@ install(CODE "MESSAGE(\"install success!\")")
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "linux-apps")
-set(CPACK_PACKAGE_VERSION "1.0.5")
-set(CPACK_DEBIAN_FILE_NAME "${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}.deb")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_DEBIAN_PACKAGE_GROUP "fibocom")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "WWAN Linux apps")
 set(CPACK_DEBIAN_PACKAGE_SECTION "base")
