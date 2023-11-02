@@ -34,9 +34,14 @@
 #include <zlib.h>
 #include <assert.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <sys/inotify.h>
 #include "fibo_flash_main.h"
 #include "fibocom-helper-gdbus-generated.h"
 #include "safe_str_lib.h"
+
+
+#define BUF_LEN (1024 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
 static const char *allow_cmds[CMD_MAX_LIST] = {
     "dmidecode -t 2 | grep 'Product Name' | cut -d ':' -f 2",
@@ -997,6 +1002,7 @@ bool check_flash_flag()
 
     return need_flash;
 }
+
 bool check_new_package()
 {
     FILE *zip_file = NULL;
@@ -1545,7 +1551,6 @@ gboolean modem_status_handler(FibocomGdbusHelper *object, const char *value, gpo
 
     if (NULL != strstr(value, "cellular existed"))
     {
-//        g_usleep (1000 * 1000 * 5);
         status = check_port_state(port_status);
         if (ERROR == status)
         {
@@ -2095,6 +2100,121 @@ void fibo_firmware_recovery_run()
  * recovery end
  * */
 
+void *fibo_monitor_package(void *arg)
+{
+    int selret = 0;
+    int read_cnt = 0;
+    int monitor_pkg_fd = -1;
+    int monitor_pkg_wd = -1;
+    unsigned int watch_flag = IN_MODIFY | IN_CREATE | IN_DELETE
+                              | IN_DELETE_SELF | IN_MOVE | IN_MOVE_SELF;
+    fd_set read_fds;
+    char buffer[BUF_LEN];
+    int buffer_i = 0;
+    bool new_pkg = FALSE;
+
+    monitor_pkg_fd = inotify_init();
+    if (monitor_pkg_fd < 0)
+    {
+        FIBO_LOG_ERROR("inotify_init error %d %s\n", errno, strerror(errno));
+        return -1;
+    }
+
+    while (TRUE)
+    {
+        if (monitor_pkg_wd < 0)
+        {
+            /* Watch config file. */
+            monitor_pkg_wd = inotify_add_watch(monitor_pkg_fd, FILE_MONITOR_PATH, watch_flag);
+            if (monitor_pkg_wd < 0)
+            {
+                FIBO_LOG_ERROR("inotify_add_watch %d %s\n", errno, strerror(errno));
+            }
+            else
+            {
+                FD_ZERO(&read_fds);
+                FD_SET(monitor_pkg_fd, &read_fds);
+                selret = select(monitor_pkg_fd + 1, &read_fds, NULL, NULL, NULL);
+            }
+        }
+
+        if (selret < 0)
+        {
+            FIBO_LOG_ERROR("select error %d\n", errno);
+            continue;
+        }
+        else if (selret == 0)
+        {
+            continue;
+        }
+        else if (!FD_ISSET(monitor_pkg_fd, &read_fds))
+        {
+            FIBO_LOG_INFO("inot_fd not in fdset\n");
+            continue;
+        }
+
+        read_cnt = read(monitor_pkg_fd, buffer, BUF_LEN);
+        if (read_cnt <= 0)
+        {
+            FIBO_LOG_INFO("read <= 0 (%d)\n", read_cnt);
+            continue;
+        }
+
+        buffer_i = 0;
+        while (buffer_i < read_cnt)
+        {
+            /* Parse events and queue them. */
+            struct inotify_event *pevent = (struct inotify_event*)&buffer[buffer_i];
+
+            if (pevent->mask & IN_MODIFY)
+            {
+                FIBO_LOG_INFO("config %s modified\n", FILE_MONITOR_PATH);
+
+                sleep(15);
+                new_pkg = check_new_package();
+                if (TRUE == new_pkg)
+                {
+                    FIBO_LOG_INFO("new package, need to update");
+                    fw_update();
+                }
+            }
+            else if (pevent->mask & (IN_DELETE | IN_DELETE_SELF | IN_MOVE | IN_MOVE_SELF))
+            {
+                FIBO_LOG_INFO("config %s was deleted or removed\n", FILE_MONITOR_PATH);
+                int ret = inotify_rm_watch(monitor_pkg_fd, monitor_pkg_wd);
+                if (ret < 0)
+                {
+                    FIBO_LOG_ERROR("rm_inotify_wd error %d\n", ret);
+                }
+
+                monitor_pkg_wd = -1;
+            }
+            else
+            {
+                FIBO_LOG_INFO("Unrecognized event mask %d\n", pevent->mask);
+            }
+
+            buffer_i += sizeof(struct inotify_event) + pevent->len;
+        }
+    }
+
+    /** Remove watch. */
+    if (inotify_rm_watch(monitor_pkg_fd, monitor_pkg_wd) < 0)
+    {
+        FIBO_LOG_ERROR("inotify_rm_watch error %d\n", errno);
+    }
+
+    close(monitor_pkg_fd);
+    return 0;
+}
+
+void fibo_monitor_package_run()
+{
+    pthread_t ptid;
+    pthread_create(&ptid, NULL, &fibo_monitor_package, NULL);
+    FIBO_LOG_INFO("monitor package create\n", __func__);
+}
+
 static gboolean sim_status_handler(FibocomGdbusHelper *object, const char *value, gpointer userdata)
 {
     e_error_code status;
@@ -2105,7 +2225,6 @@ static gboolean sim_status_handler(FibocomGdbusHelper *object, const char *value
     if (NULL != strstr(value, "mccmnc changed"))
     {
         FIBO_LOG_INFO("sim card mccmnc changed");
-//        g_usleep (1000 * 1000 * 5);
 
         status = check_port_state(port_status);
         if (ERROR == status)
@@ -2127,34 +2246,6 @@ static gboolean sim_status_handler(FibocomGdbusHelper *object, const char *value
         }
     }
 
-#if 0
-    if (NULL != strstr(value, "removed"))
-    {
-        FIBO_LOG_INFO("no need to handle");
-        return TRUE;
-    }
-
-    status = check_port_state(port_status);
-    if (ERROR == status)
-    {
-        FIBO_LOG_ERROR("get port state failed");
-        return TRUE;
-    }
-    else
-    {
-        if (NULL == strstr(port_status, "normalport"))
-        {
-            FIBO_LOG_ERROR("port state is abnormal, no need to handle");
-            return TRUE;
-        }
-    }
-
-    if (NULL != strstr(value, "mccmnc changed"))
-    {
-        FIBO_LOG_INFO("sim card mccmnc changed");
-        fw_update();
-    }
-#endif
     return TRUE;
 }
 
@@ -2164,7 +2255,6 @@ int find_ini(const char *filename, const char *section, const char *key, int *se
     int i = 0;
     char sLine[1024] = {0};
     char *wTmp = NULL;
-//    unsigned char flag = 0;
     e_ini_flag flag = INI_FLAG_INIT;
 
     fpr = fopen(filename, "r");
@@ -2388,6 +2478,9 @@ int main(int argc, char *argv[])
         goto FINISH;
     }
 
+    /* create monitor package thread */
+    fibo_monitor_package_run();
+    /* create recovery thread */
     fibo_firmware_recovery_run();
     gMainloop = g_main_loop_new(NULL, FALSE);
 

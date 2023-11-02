@@ -56,6 +56,7 @@
 #define NEW_PACKAGE_PATH "/opt/fibocom/fibo_fw_pkg/FwPackage.zip"
 #define FWPACKAGE_PATH   "/opt/fibocom/fibo_fw_pkg/FwPackage/"
 #define DEV_PKG_PATH     "/opt/fibocom/fibo_fw_pkg/FwPackage/DEV_OTA_PACKAGE/"
+#define FILE_MONITOR_PATH "/opt/fibocom/fibo_fw_pkg/"
 #define FLASH_VERSION_STRING "1.0.5"
 
 extern int g_debug_level;
