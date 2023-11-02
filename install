@@ -242,6 +242,7 @@ function create_and_install()
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_config_service/
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_flash_service/
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/
+    mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_fw_pkg
     mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/fibo_helper_tools/
     cp ${BUILD_DIR}/application/3rd/qdl/qdl ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_helper_service/fibo_helper_tools/
     # mkdir -p ${BUILD_DIR}/release/dpkg/opt/fibocom/fibo_ma_service/
