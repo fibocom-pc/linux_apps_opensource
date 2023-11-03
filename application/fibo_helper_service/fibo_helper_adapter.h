@@ -161,7 +161,9 @@ void     fibo_adapter_helperm_control_get_local_mccmnc_ready (MbimDevice *device
 gint     fibo_adapter_helperm_get_local_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata);
 void     fibo_adapter_helperm_control_get_network_mccmnc_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
 gint     fibo_adapter_helperm_get_network_mccmnc(GAsyncReadyCallback func_pointer, gpointer userdata);
-gint     fibo_adapter_helperm_get_subscriber_ready_status(void);
+void     fibo_adapter_helperm_deinit_get_subscriber_ready_status_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+void     fibo_adapter_helperm_control_get_subscriber_ready_status_ready (MbimDevice *device, GAsyncResult *res, gpointer userdata);
+gint     fibo_adapter_helperm_get_subscriber_ready_status(GAsyncReadyCallback func_pointer, gpointer userdata);
 gint     fibo_adapter_helperm_get_work_slot_info(GAsyncReadyCallback func_pointer, gpointer userdata);
 gint     fibo_adapter_helperm_switch_work_slot(GAsyncReadyCallback func_pointer, gpointer userdata);
 int      fibo_adapter_send_at_command(const char *req_cmd, char *rspbuf, const char *mbimportname);

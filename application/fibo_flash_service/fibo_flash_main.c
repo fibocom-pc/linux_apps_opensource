@@ -68,7 +68,7 @@ static const recovery_list oem_vid_pid_arry[] = {
  g_full_flags.flag_arry[1]:   9008->reboot->reboot_flag =1 > ready_falsh_flag = 1-> flash
  g_full_flags.flag_arry[2]:    modem port state:0 nopoert 1: flashport/fastbootport/normalport
 */
-g_flags g_full_flags = {UNKOWN_TYPE, 0, 0, 0};
+g_flags g_full_flags = {UNKNOWN_TYPE, 0, 0, 0};
 int reboot_count = 0;
 struct sigevent evp;
 struct itimerspec ts;
@@ -258,6 +258,12 @@ bool compare_version_dev_need_update(mdmver_details *curmdm_ver, fw_details *fw_
     char str_fw[128] = "";
     bool need_update = FALSE;
 
+    if (0 == strlen(curmdm_ver->dev_pack))
+    {
+        FIBO_LOG_ERROR("get dev version failed, no need to compare");
+        return FALSE;
+    }
+
     if (NULL == fw_ver->dev_pack)
     {
         FIBO_LOG_INFO("parse dev from xml is null");
@@ -374,29 +380,7 @@ bool compare_version_need_update(mdmver_details *curmdm_ver, fw_details *fw_ver)
     {
         FIBO_LOG_INFO("parse dev from xml is null");
 
-        if (TRUE == oem_need_update)
-        {
-            strcat(str_fw, defaultDev);
-            dev_need_update = TRUE;
-        }
-        else
-        {
-            if ((NULL != fw_ver->oem_pack) && (0 != strncmp(curmdm_ver->dev_pack, curmdm_ver->oem_pack, 4)))
-            {
-                strcat(strOem, fw_ver->oem_pack);
-                strcat(str_fw, strOem);
-                strncat(str_fw, ";", 1);
-                strcat(str_fw, defaultDev);
-                dev_need_update = TRUE;
-            }
-        }
-#if 0
-/*        if (NULL == fw_ver->oem_pack)
-        {
-            FIBO_LOG_ERROR("param is null, can't flash default dev");
-            dev_need_update = FALSE;
-        }
-        else
+        if (0 != strlen(curmdm_ver->dev_pack))
         {
             if (TRUE == oem_need_update)
             {
@@ -405,7 +389,7 @@ bool compare_version_need_update(mdmver_details *curmdm_ver, fw_details *fw_ver)
             }
             else
             {
-                if (0 != strncmp(curmdm_ver->dev_pack, curmdm_ver->oem_pack, 4))
+                if ((NULL != fw_ver->oem_pack) && (0 != strncmp(curmdm_ver->dev_pack, curmdm_ver->oem_pack, 4)))
                 {
                     strcat(strOem, fw_ver->oem_pack);
                     strcat(str_fw, strOem);
@@ -414,8 +398,7 @@ bool compare_version_need_update(mdmver_details *curmdm_ver, fw_details *fw_ver)
                     dev_need_update = TRUE;
                 }
             }
-        } */
-#endif
+        }
     }
 
     FIBO_LOG_INFO("flash fw is:%s", str_fw);
@@ -707,7 +690,7 @@ void fw_update()
     char wwanconfigID[32] = {0};
     char imei[DEV_IMEI_LEN] = {0};
     fw_details fw_version = {0};
-    e_error_code status = UNKNOWPROJECT;
+    e_error_code status = UNKNOWNPROJECT;
     bool need_update = FALSE;
     char result[8] = {0};
     int ret;
@@ -824,6 +807,7 @@ void fw_update()
         {
             FIBO_LOG_INFO("The devpack already has correct firmware version");
             reset_update_retry();
+            set_package_flag(INIT);
         }
     }
     else if (AUTO == update_option)
@@ -845,6 +829,7 @@ void fw_update()
         {
             FIBO_LOG_INFO("The modem already has correct firmware versions");
             reset_update_retry();
+            set_package_flag(INIT);
         }
     }
     else if (FORCE == update_option)
@@ -1080,7 +1065,7 @@ void save_cur_subSysid(char *subSysid)
 
 void check_imei_change()
 {
-    e_error_code status = UNKNOWPROJECT;
+    e_error_code status = UNKNOWNPROJECT;
     char imei[DEV_IMEI_LEN] = {0};
     char save_imei[DEV_IMEI_LEN] = {0};
     flash_info check_info = {0};
@@ -1167,7 +1152,7 @@ static g_flags get_set_reboot_flag(g_flags  value)
                           g_full_flags.flag_arry[2]);
             return g_full_flags;
         default:
-            FIBO_LOG_INFO("[%s]:Error of unkown command type\n", __func__);
+            FIBO_LOG_INFO("[%s]:Error of unknown command type\n", __func__);
     }
 }
 
@@ -1303,7 +1288,7 @@ gboolean fastboot_reboot_callback()
 {
     int ret = false;
     int i = 0;
-    e_port_state state = UNKNOW_PORT;
+    e_port_state state = UNKNOWN_PORT;
     //port is narml:1   flash port:2 dump:4 , not need reset modem
     FIBO_LOG_INFO("[%s] : flags :%d,%d,%d!!!\n", __func__,
                   g_full_flags.flag_arry[REBOOTFLAG],
@@ -1688,7 +1673,7 @@ gboolean reboot_modem(gpointer data)
 
 gboolean get_port_state(e_port_state *state)
 {
-    e_port_state portstate = UNKNOW_PORT;
+    e_port_state portstate = UNKNOWN_PORT;
     gboolean ret = false;
     gchar mesg_resp[128] = {0};
     g_flags flag;
@@ -1750,7 +1735,7 @@ gboolean get_port_state(e_port_state *state)
             ret = true;
             break;
         default:
-            FIBO_LOG_INFO("[%s]:unknow port:%d\n", __func__, portstate);
+            FIBO_LOG_INFO("[%s]:unknown port:%d\n", __func__, portstate);
     }
 
     FIBO_LOG_INFO("[%s]:return func: %d\n", __func__, *state);
@@ -1964,7 +1949,7 @@ gboolean comparative_oem_version()
 void *fibo_recovery_monitor(void *arg)
 {
     gboolean ret = false;
-    e_port_state port_state = UNKNOW_PORT;
+    e_port_state port_state = UNKNOWN_PORT;
     e_port_state *state = &port_state;
     GMainLoop *loop;
     mdmver_details fwinfo;
@@ -1986,7 +1971,7 @@ void *fibo_recovery_monitor(void *arg)
         FIBO_LOG_ERROR("[%s]:init_flash_timer error\n", __func__);
     }
 
-    FIBO_LOG_INFO("[%s]:regester intresting signal......", __func__);
+    FIBO_LOG_INFO("[%s]:regester interesting signal......", __func__);
     ret = regester_interesting_siganl();
     if (!ret)
     {
@@ -2076,9 +2061,9 @@ void *fibo_recovery_monitor(void *arg)
         g_timeout_add(3*60*1000,(GSourceFunc)fastboot_reboot_callback, NULL);
         ret = true;
     }
-    else if(state && *state == UNKNOW_PORT)
+    else if(state && *state == UNKNOWN_PORT)
     {
-        FIBO_LOG_NOTICE("[%s]:Now is unknow port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        FIBO_LOG_NOTICE("[%s]:Now is unknown port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
         if(!start_flash_timer(3))
         {
             FIBO_LOG_ERROR("[%s]:start_flash_timer error\n", __func__);
@@ -2434,7 +2419,7 @@ int main(int argc, char *argv[])
     bool normal_port = FALSE;
     int ret;
     char port_status[32] = {0};
-    e_error_code status = UNKNOWPROJECT;
+    e_error_code status = UNKNOWNPROJECT;
     FILE *g_file = NULL;
     int i;
 
@@ -2484,13 +2469,15 @@ int main(int argc, char *argv[])
     fibo_firmware_recovery_run();
     gMainloop = g_main_loop_new(NULL, FALSE);
 
-    for (i = 0; i < 30; i++)
+    new_pkg = check_new_package();
+
+    for (i = 0; i < 15; i++)
     {
-        g_usleep(1000 * 1000 * 2);
         status = check_port_state(port_status);
         if (ERROR == status)
         {
             FIBO_LOG_ERROR("get port state failed");
+            g_usleep(1000 * 1000 * 2);
             continue;
         }
         else
@@ -2498,6 +2485,7 @@ int main(int argc, char *argv[])
             if (strstr(port_status, "normalport") == NULL)
             {
                 FIBO_LOG_INFO("port state is abnormal, wait...");
+                g_usleep(1000 * 1000 * 2);
                 continue;
             }
             else
@@ -2513,7 +2501,6 @@ int main(int argc, char *argv[])
     {
         FIBO_LOG_INFO("port state is normal, start FW flash flow");
 
-        new_pkg = check_new_package();
         if (new_pkg == TRUE)
         {
             fw_update();
@@ -2530,11 +2517,11 @@ int main(int argc, char *argv[])
                 check_imei_change();
             }
         }
-
-        g_signal_connect(proxy, "simcard-change", G_CALLBACK(sim_status_handler),NULL);
-        g_signal_connect(proxy, "cellular-state",G_CALLBACK(modem_status_handler),NULL);
-        g_signal_connect(proxy,"fastboot-status",G_CALLBACK(fastboot_status_handler),NULL);
     }
+
+    g_signal_connect(proxy, "simcard-change", G_CALLBACK(sim_status_handler),NULL);
+    g_signal_connect(proxy, "cellular-state",G_CALLBACK(modem_status_handler),NULL);
+    g_signal_connect(proxy,"fastboot-status",G_CALLBACK(fastboot_status_handler),NULL);
 
     g_main_loop_run(gMainloop);
     g_object_unref(proxy);

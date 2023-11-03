@@ -127,7 +127,7 @@ std::string atSender(std::string at_command) {
     }
 
     if (strstr(at_command.c_str(), "at+syscmd") != NULL) {
-        at_result = "syscmd dont return";
+        at_result = "syscmd do not return";
         return at_result;
     }
 
@@ -135,6 +135,10 @@ std::string atSender(std::string at_command) {
        size_t len = read(serial_port_fd, temp + length, sizeof(temp));
        if (len > 0) {
            length += len;
+       }
+       else{
+           std::cout << "read len is 0,break while" << std::endl;
+           break;
        }
        if(strstr(temp,"OK") || strstr(temp,"ERROR"))
        {

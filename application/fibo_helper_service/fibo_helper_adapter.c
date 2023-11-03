@@ -111,7 +111,6 @@ quit_cb (gint user_data)
     return;
 }
 
-gboolean g_sim_locked_flag   = FALSE;
 gboolean g_sim_inserted_flag = FALSE;
 
 static void
@@ -245,7 +244,7 @@ basic_connect_notification_register_state (MbimDevice           *device,
         fibo_adapter_helperm_send_control_message_to_helperd(CTL_MBIM_REGISTER_STATE_IND, strlen(provider_id), provider_id);
     } else {
         FIBO_LOG_DEBUG("register state: %s\n", mbim_register_state_get_string (register_state));
-        FIBO_LOG_DEBUG("Dont get valid roam mccmnc!\n");
+        FIBO_LOG_DEBUG("don't get valid roam mccmnc!\n");
     }
 
     return;
@@ -454,7 +453,7 @@ restore_main_signal_work(gint signum)
 
     FIBO_LOG_DEBUG("finished!\n");
 
-    // noted below code cause we dont expect mbim's crash influence dbus.
+    // noted below code cause we don't expect mbim's crash influence dbus.
     /*
     if (g_error_flag < 5) {
         fibo_adapter_alloc_and_send_resp_structure(HELPER, CTL_MBIM_NO_RESP, 1, 0, NULL);
@@ -491,7 +490,7 @@ fibo_adapter_helperm_get_work_module_name(gchar *atport)
     ret = fibo_adapter_check_cellular(&res);
     if (ret != RET_OK || res != RET_OK)
     {
-        FIBO_LOG_ERROR("Helper cant recognize cellular!\n");
+        FIBO_LOG_ERROR("Helper can't recognize cellular!\n");
         return RET_ERR_RESOURCE;
     }
 
@@ -504,7 +503,7 @@ fibo_adapter_helperm_get_work_module_name(gchar *atport)
     FIBO_LOG_DEBUG("device AT port:%s\n", module_info.atportname);
 
     if (module_info.atportname == NULL || strlen(module_info.atportname) < 1) {
-        FIBO_LOG_ERROR("Invalid atport name, dont init!\n");
+        FIBO_LOG_ERROR("Invalid atport name, don't init!\n");
         return RET_ERR_RESOURCE;
     }
 
@@ -523,7 +522,7 @@ fibo_adapter_helperm_get_work_module_name(gchar *atport)
     // check command's execute result.
     ret = pclose(fp);
     if (ret != RET_OK || strlen(commandrsp) == 0) {
-        FIBO_LOG_ERROR("cant find atport!\n");
+        FIBO_LOG_ERROR("can't find atport!\n");
         return RET_ERROR;
     }
 
@@ -655,7 +654,7 @@ fibo_adapter_send_at_over_gnss_message(void                   *message,
 
     ret = fibo_adapter_helperm_get_work_module_name(atport);
     if (ret != RET_OK) {
-        FIBO_LOG_ERROR("cant get atport name!\n");
+        FIBO_LOG_ERROR("can't get atport name!\n");
         return RET_ERROR;
     }
 
@@ -1317,7 +1316,7 @@ fibo_adapter_check_cellular(gint *check_result)
     if (matched_devices == 0) {
         *check_result = RET_ERROR;
         cellular_info.cellular_state = CELLULAR_STATE_MISSING;
-        FIBO_LOG_DEBUG("Dont find any supported cellular!\n");
+        FIBO_LOG_DEBUG("don't find any supported cellular!\n");
     }
 
     fibo_adapter_set_work_cellular_info(&cellular_info);
@@ -1386,7 +1385,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
 */
 
     if (mbimportname == NULL || strlen(mbimportname) < 1) {
-        FIBO_LOG_ERROR("Invalid mbimport name, dont init!\n");
+        FIBO_LOG_ERROR("Invalid mbimport name, don't init!\n");
         return;
     }
 
@@ -1405,7 +1404,7 @@ fibo_adapter_mbim_port_init(char *mbimportname)
     // check command's execute result.
     ret = pclose(fp);
     if (ret != RET_OK || strlen(commandrsp) == 0) {
-        FIBO_LOG_ERROR("cant find mbimport!\n");
+        FIBO_LOG_ERROR("can't find mbimport!\n");
         return;
     }
 /*
@@ -1521,7 +1520,7 @@ fibo_adapter_device_Check(gpointer user_data)
             ret = fibo_adapter_check_cellular(&res);
             if (ret != RET_OK || res != RET_OK)
             {
-                FIBO_LOG_ERROR("Helper cant recognize cellular!\n");
+                FIBO_LOG_ERROR("Helper can't recognize cellular!\n");
                 udev_device_unref(device);
                 continue;
             }
@@ -1540,7 +1539,7 @@ fibo_adapter_device_Check(gpointer user_data)
                 sleep(2);
                 fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
             } else
-                FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+                FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
         }
         else if (0 == strcmp(action, "remove"))
         {
@@ -1567,13 +1566,13 @@ fibo_adapter_device_Check(gpointer user_data)
             if (g_skeleton != NULL)
                 fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular missing!");
             else
-                FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+                FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
 
             fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_DEINIT, 0, NULL);
         }
         else
         {
-            FIBO_LOG_DEBUG("dont know what accured on module: action: %s\n", action);
+            FIBO_LOG_DEBUG("don't know what accured on module: action: %s\n", action);
         }
         udev_device_unref(device);
     }
@@ -1949,7 +1948,7 @@ fibo_adapter_helperm_control_get_network_mccmnc_ready (MbimDevice   *device,
 
     if (!provider_id) {
         FIBO_LOG_DEBUG("register state: %s\n", mbim_register_state_get_string (register_state));
-        FIBO_LOG_DEBUG("Dont get valid roam mccmnc!\n");
+        FIBO_LOG_DEBUG("don't get valid roam mccmnc!\n");
         return;
     }
 
@@ -1999,7 +1998,22 @@ fibo_adapter_helperm_get_network_mccmnc(GAsyncReadyCallback func_pointer, gpoint
 
 // this callback will be executed on helperm's mainloop.
 void
-fibo_adapter_helperm_get_subscriber_ready_status_ready (MbimDevice   *device,
+fibo_adapter_helperm_deinit_get_subscriber_ready_status_ready (MbimDevice   *device,
+                                 GAsyncResult *res,
+                                 gpointer userdata)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+
+    // this func don't care about SIM card status, just to clear insert flag and call deinit function on mainloop.
+    g_sim_inserted_flag = FALSE;
+
+    fibo_adapter_mbim_port_deinit();
+    return;
+}
+
+// this callback will be executed on helperm's mainloop.
+void
+fibo_adapter_helperm_control_get_subscriber_ready_status_ready (MbimDevice   *device,
                                  GAsyncResult *res,
                                  gpointer userdata)
 {
@@ -2079,7 +2093,7 @@ fibo_adapter_helperm_get_subscriber_ready_status_ready (MbimDevice   *device,
 
 // this func should query subscriber ready status and send mccmnc back to helperd.
 gint
-fibo_adapter_helperm_get_subscriber_ready_status(void)
+fibo_adapter_helperm_get_subscriber_ready_status(GAsyncReadyCallback func_pointer, gpointer userdata)
 {
     g_autoptr(MbimMessage)   request                              =  NULL;
     gint                     retry                                =  REQUEST_MAX_RETRY;
@@ -2103,8 +2117,8 @@ fibo_adapter_helperm_get_subscriber_ready_status(void)
                          request,
                          5,
                          cancellable,
-                         (GAsyncReadyCallback)fibo_adapter_helperm_get_subscriber_ready_status_ready,
-                         NULL);
+                         func_pointer,
+                         userdata);
 
     return RET_OK;
 }

@@ -766,7 +766,7 @@ static bool sar_get_sar_type1_index(xmlNodePtr node, fibo_sar_xml1_t *xmldata)
     {
         if (!xmlStrcmp(stand_node->name, (const xmlChar *)"Standard"))
         {
-            data = xmlGetProp(stand_node, BAD_CAST "Vaule");
+            data = xmlGetProp(stand_node, BAD_CAST "Value");
             if (NULL != data)
             {
                 if (0 == strcmp(xmldata->standard, data))
@@ -801,7 +801,7 @@ static bool sar_get_sar_type2_index(xmlNodePtr node, fibo_sar_xml2_t *xmldata)
     {
         if (!xmlStrcmp(stand_node->name, (const xmlChar *)"Standard"))
         {
-            data = xmlGetProp(stand_node, BAD_CAST "Vaule");
+            data = xmlGetProp(stand_node, BAD_CAST "Value");
             if (NULL != data)
             {
                 if (0 == strcmp(xmldata->standard, data))
@@ -844,7 +844,7 @@ static bool sar_get_sar_type3_index(xmlNodePtr node, fibo_sar_xml3_t *xmldata)
     {
         if (!xmlStrcmp(stand_node->name, (const xmlChar *)"Standard"))
         {
-            data = xmlGetProp(stand_node, BAD_CAST "Vaule");
+            data = xmlGetProp(stand_node, BAD_CAST "Value");
             if (NULL != data)
             {
                 if (0 == strcmp(xmldata->standard, data))
@@ -890,7 +890,7 @@ static bool sar_get_sar_type4_index(xmlNodePtr node, fibo_sar_xml4_t *xmldata)
     {
         if (!xmlStrcmp(stand_node->name, (const xmlChar *)"Standard"))
         {
-            data = xmlGetProp(stand_node, BAD_CAST "Vaule");
+            data = xmlGetProp(stand_node, BAD_CAST "Value");
             if (NULL != data)
             {
 
@@ -941,7 +941,7 @@ static bool sar_get_sar_type5_index(xmlNodePtr node, fibo_sar_xml5_t *xmldata)
 
         if (!xmlStrcmp(stand_node->name, (const xmlChar *)"Standard"))
         {
-            data = xmlGetProp(stand_node, BAD_CAST "Vaule");
+            data = xmlGetProp(stand_node, BAD_CAST "Value");
             if (0 == strcmp(xmldata->standard, data))
             {
                 xmlFree(data);

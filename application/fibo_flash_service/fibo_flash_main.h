@@ -57,7 +57,7 @@
 #define FWPACKAGE_PATH   "/opt/fibocom/fibo_fw_pkg/FwPackage/"
 #define DEV_PKG_PATH     "/opt/fibocom/fibo_fw_pkg/FwPackage/DEV_OTA_PACKAGE/"
 #define FILE_MONITOR_PATH "/opt/fibocom/fibo_fw_pkg/"
-#define FLASH_VERSION_STRING "1.0.5"
+#define FLASH_VERSION_STRING "1.0.6"
 
 extern int g_debug_level;
 
@@ -164,14 +164,14 @@ typedef enum
     FWRECOVERY,    /* FWRecovery service */
     MASERVICE,     /* MA service */
     CONFIGSERVICE, /* Config service */
-    UNKNOW_SERVICE /* unknow service */
+    UNKNOWN_SERVICE /* unknown service */
 } e_service_id;
 
 typedef enum
 {
     OK = 0,
     ERROR,
-    UNKNOWPROJECT
+    UNKNOWNPROJECT
 } e_error_code;
 
 typedef enum
@@ -210,7 +210,7 @@ typedef enum
     GET_OEM_ID,
     RESET_MODEM_HW,
     FLASH_FW_EDL,
-    UNKNOW_COMMAND
+    UNKNOWN_COMMAND
 } e_command_cid;
 
 typedef struct Header
@@ -235,14 +235,14 @@ typedef enum
     FLASH_PORT,
     FASTBOOT_PORT,
     DUMP_PORT,
-    UNKNOW_PORT,
+    UNKNOWN_PORT,
 }e_port_state;
 
 typedef enum
 {
     GET,
     SET,
-    UNKOWN_TYPE,
+    UNKNOWN_TYPE,
 }e_command_type;
 
 typedef enum
@@ -250,7 +250,7 @@ typedef enum
     REBOOTFLAG,
     READYFLASHFLAG,
     PORTSTATEFLAG,
-    UNKNOWFLAG,
+    UNKNOWNFLAG,
 }e_flags;
 
 #define LIST_NUM 8

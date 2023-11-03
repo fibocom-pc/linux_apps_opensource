@@ -23,7 +23,7 @@ cmake_minimum_required(VERSION 3.6)
 # minor = Small design change specific to any operation.
 # macro = small change or bug fix
 
-project(fibocom_linux VERSION 1.0.5)
+project(fibocom_linux VERSION 1.0.6)
 
 add_subdirectory (application)
 

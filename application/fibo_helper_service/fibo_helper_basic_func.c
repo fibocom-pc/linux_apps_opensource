@@ -388,16 +388,17 @@ request_transmitter(FibocomGdbusHelper     *skeleton,
                       GDBusMethodInvocation  *invocation,
                       GVariant               *str)
 {
-    int                    ret          = RET_ERROR;
-    helper_message_struct  *msgs        = NULL;
-    fibo_async_struct_type *user_data   = NULL;
+    int                    ret             = RET_ERROR;
+    helper_message_struct  *msgs           = NULL;
+    fibo_async_struct_type *user_data      = NULL;
 
-    gint                  serviceid    = RET_ERROR;
-    gint                  cid          = RET_ERROR;
-    gint                  rtcode       = RET_ERR_PROCESS;
-    gint                  payloadlen   = 0;
-    gchar                 *payload_str = NULL;
-    GVariant              *resp_str    = NULL;
+    gint                   serviceid       = RET_ERROR;
+    gint                   cid             = RET_ERROR;
+    gint                   rtcode          = RET_ERR_PROCESS;
+    gint                   payloadlen      = 0;
+    gchar                  *payload_str    = NULL;
+    GVariant               *resp_str       = NULL;
+    gboolean               mismatched_flag = FALSE;
 
     FIBO_LOG_DEBUG("enter! helper get request! req struct size: %ld\n", sizeof(fibo_async_struct_type));
 
@@ -407,7 +408,7 @@ request_transmitter(FibocomGdbusHelper     *skeleton,
     if (user_data == NULL)
     {
         FIBO_LOG_ERROR("malloc failed!\n");
-        rtcode = RET_ERROR;
+        rtcode = RET_ERR_PROCESS;
         fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
         // g_variant_unref(str);
         return RET_ERROR;
@@ -506,7 +507,7 @@ request_transmitter(FibocomGdbusHelper     *skeleton,
     if (msgs == NULL)
     {
         FIBO_LOG_ERROR("malloc failed!\n");
-        rtcode = RET_ERROR;
+        rtcode = RET_ERR_PROCESS;
         fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
         if(user_data) {
             free(user_data);
@@ -529,7 +530,7 @@ request_transmitter(FibocomGdbusHelper     *skeleton,
         msgs = NULL;
 
         // if msgsnd func return error, will trigger a default resp func to caller.
-        rtcode = RET_ERROR;
+        rtcode = RET_ERR_PROCESS;
         fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
         // g_variant_unref(str);
         return RET_ERROR;
@@ -539,38 +540,65 @@ request_transmitter(FibocomGdbusHelper     *skeleton,
     g_current_svcid = serviceid;
     g_current_cid   = cid;
 
-    fibo_adapter_helperd_timer_handle();
-
-    memset(msgs, 0, 2048);
-
-    free(user_data);
-    user_data = NULL;
-
-    ret = fibo_adapter_helperd_get_normal_msg_from_helperm(msgs);
-    fibo_adapter_helperd_timer_close();
-    if (RET_ERROR == ret)
-    {
-        FIBO_LOG_DEBUG("Get message failed!\n");
-        free(msgs);
-        msgs = NULL;
-
-        // if msgrcv func return error, will trigger a default resp func to caller.
-        rtcode = RET_ERROR;
-        fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
-        // g_variant_unref(str);
-        return RET_ERROR;
+    if (user_data) {
+        free(user_data);
+        user_data = NULL;
     }
 
-    user_data = (fibo_async_struct_type *)msgs->mtext;
+    // add a workaround logic on below scenario:
+    // step 1. helperd send request to helperm.
+    // step 2. helperd crash or user restart helperd, helperm is working at same time.
+    // step 3. helperd init message queue finished, then helperm send resp to message queue.
+    // step 4. helperd get new request, send message to helperm and get previous resp.
+    // step 5. helperd return error and get new request, helperm solve previous request, repeat step 4.
+    // this will cause helperd always return mismatched error and can't work at all.
+    // so here add mechanism as below:
+    // 1. if helperd get mismatched message first time, will retry to get response message again.
+    // 2. based on 1, if helperd get mismatched secondly, will send error directly.
+    // 3. based on 1, if helperd get correct resp secondly, will exit do-while and executed normally.
+    // 4. on normal scenario, flag is set to false by default, and won't get mismatched message, so normal logic can work as expect.
+    // 5. Cause helperd is strictly synchronized function, there will be 2 messages at most(one is previous message, then helperd restart and get new message).
 
-    FIBO_LOG_DEBUG("len:%d\n", user_data->payloadlen);
+    do {
+        fibo_adapter_helperd_timer_handle();
 
-    rtcode = user_data->rtcode;
+        memset(msgs, 0, 2048);
 
-    if (user_data->cid != cid || user_data->serviceid != serviceid) {
-        FIBO_LOG_ERROR("Get mismatched message, drop it and send error to caller!\n");
-        rtcode = 1;
-    }
+        ret = fibo_adapter_helperd_get_normal_msg_from_helperm(msgs);
+        fibo_adapter_helperd_timer_close();
+        if (RET_ERROR == ret)
+        {
+            FIBO_LOG_DEBUG("Get message failed!\n");
+            free(msgs);
+            msgs = NULL;
+
+            // if msgrcv func return error, will trigger a default resp func to caller.
+            rtcode = RET_ERR_PROCESS;
+            fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, payloadlen, payload_str);
+            // g_variant_unref(str);
+            return RET_ERROR;
+        }
+
+        user_data = (fibo_async_struct_type *)msgs->mtext;
+
+        FIBO_LOG_DEBUG("len:%d\n", user_data->payloadlen);
+
+        rtcode = user_data->rtcode;
+
+        if (user_data->cid != cid || user_data->serviceid != serviceid) {
+            if (mismatched_flag == FALSE) {
+                FIBO_LOG_ERROR("Get mismatched message, drop it and retry to get response!\n");
+                mismatched_flag = TRUE;
+            }
+            else {
+                FIBO_LOG_ERROR("Get mismatched message again! return error to dbus!\n");
+                rtcode = RET_ERR_PROCESS;
+                break;
+            }
+        } else {
+            mismatched_flag = FALSE;
+        }
+    } while (mismatched_flag == TRUE);
 
     fibo_adapter_helperd_send_resp_to_dbus(skeleton, g_object_ref(invocation), serviceid, cid, rtcode, user_data->payloadlen, user_data->payload_str);
 
@@ -595,7 +623,7 @@ bus_acquired (GDBusConnection *connection,
     FIBO_LOG_DEBUG("Enter! name is %s\n", name);
 
     if (!connection || !name) {
-        FIBO_LOG_ERROR("NULL pointer! wont register any signal!\n");
+        FIBO_LOG_ERROR("NULL pointer! won't register any signal!\n");
         return;
     }
 
@@ -612,7 +640,7 @@ bus_name_acquired (GDBusConnection *connection,
 {
     FIBO_LOG_DEBUG("Enter!\n");
     if (!connection || !name) {
-        FIBO_LOG_ERROR("NULL pointer! wont register any signal!\n");
+        FIBO_LOG_ERROR("NULL pointer! won't register any signal!\n");
         return;
     }
 
@@ -705,7 +733,7 @@ static void scan_ready (MMModem3gpp  *modem_3gpp,
 
     if (NULL == mcc_mnc)
     {
-        FIBO_LOG_ERROR("Dont get current network mccmnc!\n");
+        FIBO_LOG_ERROR("don't get current network mccmnc!\n");
         g_list_free_full (operation_result, (GDestroyNotify) mm_modem_3gpp_network_free);
         if (modem_3gpp)
             g_object_unref (modem_3gpp);
@@ -739,10 +767,10 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
 
     FIBO_LOG_DEBUG("enter!\n");
 
-    // although object add event will be triggered on module insert and sim card insert, we dont deal with modem insert cause modemmanager will get modem firstly and get sim card secondly!
+    // although object add event will be triggered on module insert and sim card insert, we don't deal with modem insert cause modemmanager will get modem firstly and get sim card secondly!
     if (NULL == gmodem_object)
     {
-        printf("cant get modem object, so consider no change on SIM card!\n");
+        printf("can't get modem object, so consider no change on SIM card!\n");
         return;
     }
 
@@ -766,7 +794,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "SIM CARD inserted!");
     else
-        FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+        FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
 
     // step2: get sim card's mccmnc.
     // further: use mbim message to get local mccmnc.
@@ -787,7 +815,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
         if (g_skeleton != NULL)
             fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "local mccmnc changed!");
         else
-            FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+            FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
     }
 */
 
@@ -799,7 +827,7 @@ static void mm_plugin_object_added_cb(MMManager *manager, MMObject *gmodem_objec
     }
     g_object_unref(sim_obj);
 
-// further: this callback will be executed by mainloop, so that it cant blocked or wait! should use sync func to query network mccmnc!
+// further: this callback will be executed by mainloop, so that it can't blocked or wait! should use sync func to query network mccmnc!
 /*
     // step3: get roaming area mccmnc.
     modem_3gpp =  mm_object_get_modem_3gpp(gmodem_object);
@@ -838,7 +866,7 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
 
     // step2: check whether SIM card inserted before.
     if (!g_sim_inserted_flag) {
-        FIBO_LOG_DEBUG("Dont find SIM card inserted before, invalid object remove event!\n");
+        FIBO_LOG_DEBUG("don't find SIM card inserted before, invalid object remove event!\n");
         return;
     }
 
@@ -851,7 +879,7 @@ static void mm_plugin_object_removed_cb(MMManager *manager, MMObject *modem)
     if (g_skeleton != NULL)
         fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "SIM CARD removed!");
     else
-        FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+        FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
 
     return;
 }
@@ -969,7 +997,7 @@ fibo_helper_control_message_receiver(void)
                 if (g_skeleton != NULL)
                     fibocom_gdbus_helper_emit_simcard_change(g_skeleton, "local mccmnc changed!");
                 else
-                    FIBO_LOG_ERROR("variable is NULL, dont send local mccmnc change signal!\n");
+                    FIBO_LOG_ERROR("variable is NULL, don't send local mccmnc change signal!\n");
                 break;
             case CTL_MBIM_REGISTER_STATE_IND:
                 FIBO_LOG_DEBUG("get REGISTER_STATE resp!\n");
@@ -990,7 +1018,7 @@ fibo_helper_control_message_receiver(void)
                 if (g_skeleton != NULL)
                     fibocom_gdbus_helper_emit_roam_region(g_skeleton, "roam mccmnc changed!");
                 else
-                    FIBO_LOG_ERROR("variable is NULL, dont send roam mccmnc change signal!\n");
+                    FIBO_LOG_ERROR("variable is NULL, don't send roam mccmnc change signal!\n");
                 break;
             case CTL_MBIM_SUBSCRIBER_READY_IND:
                 FIBO_LOG_DEBUG("get SUBSCRIBER_READY_STATUS resp!\n");
@@ -1003,7 +1031,7 @@ fibo_helper_control_message_receiver(void)
                     fibocom_gdbus_helper_emit_simcard_change(g_skeleton, user_data->payload_str);
                 }
                 else
-                    FIBO_LOG_ERROR("variable is NULL, dont send SIM card change signal!\n");
+                    FIBO_LOG_ERROR("variable is NULL, don't send SIM card change signal!\n");
                 break;
             default:
                 FIBO_LOG_DEBUG("Unsupported control message cid:0x%04x\n", user_data->cid);
@@ -1176,7 +1204,7 @@ fibo_helper_device_check(void)
                 }
                 break;
             case 2:
-                FIBO_LOG_ERROR ("dont find valid cellular twice, will trigger HW reboot!\n");
+                FIBO_LOG_ERROR ("don't find valid cellular twice, will trigger HW reboot!\n");
                 // trigger HW reboot
             case 1:
                 while (retrycount < 20) {
@@ -1186,7 +1214,7 @@ fibo_helper_device_check(void)
                         fibo_adapter_control_mbim_init();
 
                         // if retrycount = 0, means service restart while module already exist, so service need to check whether sim card is ready!
-                        // cause home provider dont support indication, helperm will have to check secondly.
+                        // cause home provider don't support indication, helperm will have to check secondly.
                         // if module already connected to network, service will miss register state indication, helperm should check it!
                         if (retrycount == 0)
                             fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_SUBSCRIBER_READY_QUERY, 0, NULL);
@@ -1195,7 +1223,7 @@ fibo_helper_device_check(void)
                             fibocom_gdbus_helper_emit_cellular_state(g_skeleton, "[ModemState]cellular existed!");
                         }
                         else
-                            FIBO_LOG_ERROR("variable is NULL, dont send cellular info signal!\n");
+                            FIBO_LOG_ERROR("variable is NULL, don't send cellular info signal!\n");
 
                         // device check is used to monitor all devices' add and remove event through udev.
                         devcheck_thread = g_thread_new ("devicecheck", (GThreadFunc)fibo_adapter_device_Check, (gpointer)&device_exist_flag);
@@ -1204,7 +1232,7 @@ fibo_helper_device_check(void)
                         }
                         return;
                     }
-                    FIBO_LOG_ERROR ("dont find valid cellular, will retry!\n");
+                    FIBO_LOG_ERROR ("don't find valid cellular, will retry!\n");
                     g_usleep (1000 * 1000 * 3);
                     retrycount++;
                 }
@@ -1237,7 +1265,7 @@ fibo_helper_main_receiver(void)
     helper_message_struct  *msgs            = NULL;
     fibo_async_struct_type *user_data       = NULL;
 
-    // further: add a timer to keep if message cant be returned, there will be a default error from main analyzer to main loop.
+    // further: add a timer to keep if message can't be returned, there will be a default error from main analyzer to main loop.
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
@@ -1285,7 +1313,7 @@ void fibo_helper_control_receiver(void)
     fibo_async_struct_type *user_data       = NULL;
     char                   mbimportname[FIBOCOM_MODULE_MBIMPORT_LEN];
 
-    // further: add a timer to keep if message cant be returned, there will be a default error from main analyzer to main loop.
+    // further: add a timer to keep if message can't be returned, there will be a default error from main analyzer to main loop.
     msgs = (helper_message_struct *)malloc(2048 * sizeof(char));
     if (msgs == NULL)
     {
@@ -1319,7 +1347,7 @@ void fibo_helper_control_receiver(void)
                 fibo_adapter_mbim_port_init(mbimportname);
                 break;
             case CTL_MBIM_DEINIT:
-                fibo_adapter_mbim_port_deinit();
+                fibo_adapter_helperm_get_subscriber_ready_status((GAsyncReadyCallback)fibo_adapter_helperm_deinit_get_subscriber_ready_status_ready, NULL);
                 break;
             case CTL_MBIM_END:
                 if (gMainLoop) {
@@ -1328,7 +1356,7 @@ void fibo_helper_control_receiver(void)
                 }
                 break;
             case CTL_MBIM_SUBSCRIBER_READY_QUERY:
-                fibo_adapter_helperm_get_subscriber_ready_status();
+                fibo_adapter_helperm_get_subscriber_ready_status((GAsyncReadyCallback)fibo_adapter_helperm_control_get_subscriber_ready_status_ready, NULL);
                 break;
             case CTL_MBIM_HOME_PROVIDER_QUERY:
                 fibo_adapter_helperm_get_local_mccmnc((GAsyncReadyCallback)fibo_adapter_helperm_control_get_local_mccmnc_ready, NULL);
@@ -1395,7 +1423,7 @@ int fibo_helper_queue_init(void)
 
 /* ---------------------------------Begin: add customized function.------------------------------------------ */
 
-// all request functions dont need unlock keep_pointer_exist mutex, but need to call two result resp functions to trigger a default error resp to caller.
+// all request functions don't need unlock keep_pointer_exist mutex, but need to call two result resp functions to trigger a default error resp to caller.
 int
 fibo_parse_sw_reboot(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, char *req_cmd)
 {
@@ -1497,7 +1525,7 @@ fibo_helperm_get_network_mccmnc_ready (MbimDevice   *device,
 
     if (!provider_id) {
         FIBO_LOG_DEBUG("register state: %s\n", mbim_register_state_get_string (register_state));
-        FIBO_LOG_DEBUG("Dont get valid roam mccmnc!\n");
+        FIBO_LOG_DEBUG("don't get valid roam mccmnc!\n");
         fibo_resp_error_result_callback(device, res, userdata);
         return;
     }
@@ -1696,7 +1724,7 @@ fibo_parse_mbim_request(gint serviceid, gint cid, gint rtcode, gint payloadlen, 
     return RET_OK;
 }
 
-// if one callback called this callback, caller dont concern user_data cause here will free it!
+// if one callback called this callback, caller don't concern user_data cause here will free it!
 void
 fibo_resp_error_result_callback (MbimDevice   *device,
                                  GAsyncResult *res,
@@ -2802,7 +2830,7 @@ gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_
 
     fastboot_flash.progress_fp = NULL;
     strcpy(fastboot_flash.progress_title,"ModemUpgrade");
-    strcpy(fastboot_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>!!!Do not shut down or restart Ubuntu</span>");
+    strcpy(fastboot_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>Do not shut down or restart</span>");
     sprintf(fastboot_flash.progress_command,
             "%s/usr/bin/zenity --progress --text=\"%s\" --percentage=%d --auto-close --no-cancel --width=600 --title=\"%s\"",
             set_zenity_environment_variable,fastboot_flash.progress_text, 10,fastboot_flash.progress_title);
@@ -3160,11 +3188,11 @@ gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_
     if(*fastboot_success_flag == flash_partition_num)
     {
         *fastboot_success_flag = 1;
-        strcpy(fastboot_flash.progress_text, "#The Modem upgrade Success!\n");
+        strcpy(fastboot_flash.progress_text, "#The Modem upgrade Success!\\n\\n\n");
     }
     else{
         *fastboot_success_flag = 0;
-        strcpy(fastboot_flash.progress_text, "#The Modem upgrade failed!\n");
+        strcpy(fastboot_flash.progress_text, "#The Modem upgrade failed!\\n\\n\n");
     }
 
     sprintf(fastboot_flash.progress_percentage, "%s\n", "99");
@@ -3409,6 +3437,14 @@ gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
     }
 
     sprintf(qdl_work_space,"%sMaincode/", qdl_falash_path);
+
+    if(0 == access(qdl_work_space, F_OK)) {
+        FIBO_LOG_WARNING("Directory exists.\n");
+        qdl_rmdir(qdl_work_space);
+    } else {
+        FIBO_LOG_INFO("Directory does not exist.\n");
+    }
+
     ret = fibocom_creat_qdl_work_space(qdl_falash_path, qdl_work_space, qdl_apver, qdl_mdver);
     if(RET_OK != ret)
     {
@@ -3420,7 +3456,7 @@ gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
     sprintf(prog_nand_firehose_path,"%sprog_nand_firehose_9x55.mbn",qdl_work_space);
     sprintf(rawprogram_nand_path,"%srawprogram_nand_p2K_b128K.xml",qdl_work_space);
     sprintf(patch_p2K_path,"%spatch_p2K_b128K.xml",qdl_work_space);
-    sprintf(qdl_flash_cmd,"/opt/fibocom/fibo_helper_service/fibo_helper_tools/qdl --storage nand --include %s %s %s %s",qdl_work_space,prog_nand_firehose_path,rawprogram_nand_path,patch_p2K_path);
+    sprintf(qdl_flash_cmd,"/opt/fibocom/fibo_helper_service/fibo_helper_tools/qdl --storage nand --include %s %s %s %s 2>&1",qdl_work_space,prog_nand_firehose_path,rawprogram_nand_path,patch_p2K_path);
 
     ret = find_segment_from_xml("filename", rawprogram_nand_path, &image_num);
     if(RET_ERROR == ret){
@@ -3445,7 +3481,7 @@ gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
     FIBO_LOG_DEBUG("%s %d\n",qdl_flash_cmd,__LINE__);
 
     strcpy(qdl_flash.progress_title,"ModemUpgrade");
-    strcpy(qdl_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>!!!Do not shut down or restart Ubuntu</span>");
+    strcpy(qdl_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>Do not shut down or restart</span>");
     sprintf(qdl_flash.progress_command,
             "%s/usr/bin/zenity --progress --text=\"%s\" --percentage=%d --auto-close --no-cancel --width=600 --title=\"%s\"",
             set_zenity_environment_variable,qdl_flash.progress_text, qdl_flash.progress_percentage[0] ,qdl_flash.progress_title);
@@ -3479,25 +3515,15 @@ gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
             ret = qdl_rmdir(qdl_work_space);
             return NULL;
         }
-        if(strstr(buf,"start_sector 0") != NULL)
-        {
-            FIBO_LOG_DEBUG("%s %d\n", buf,__LINE__);
-            qdl_flash_progress_current_percentage = 10;
-            itoa(qdl_flash_progress_current_percentage, qdl_flash.progress_percentage, 10);
-            sprintf(qdl_flash.progress_percentage, "%s\n", qdl_flash.progress_percentage);
-            fwrite(qdl_flash.progress_percentage, sizeof(char), strlen(qdl_flash.progress_percentage), qdl_flash.progress_fp);
-            fflush(qdl_flash.progress_fp);
-            g_usleep(1000*1000*1);
-        }
 
-        if(strstr(buf,"Finished sector address") != NULL) {
+        if(strstr(buf,"successfully") != NULL) {
             i++;
-            FIBO_LOG_DEBUG("%s %d\n", buf, __LINE__);
             qdl_flash_progress_current_percentage += qdl_flash_partition_percent;
             itoa(qdl_flash_progress_current_percentage, qdl_flash.progress_percentage, 10);
             sprintf(qdl_flash.progress_percentage, "%s\n", qdl_flash.progress_percentage);
             fwrite(qdl_flash.progress_percentage, sizeof(char), strlen(qdl_flash.progress_percentage),
                    qdl_flash.progress_fp);
+            FIBO_LOG_DEBUG("buf =====  %s    progress_percentage === %s\n", buf, qdl_flash.progress_percentage);
             fflush(qdl_flash.progress_fp);
             g_usleep(1000 * 1000 * 1);
         }
@@ -3505,16 +3531,15 @@ gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
 
     if(image_num == i )
     {
-        strcpy(qdl_flash.progress_text,"#The Modem upgrade Success!\n");
+        strcpy(qdl_flash.progress_text,"#The Modem upgrade Success!\\n\\n\n");
         *qdl_success_flag = 1;
     }
     else{
-        strcpy(qdl_flash.progress_text,"#The Modem upgrade failed!\n");
+        strcpy(qdl_flash.progress_text,"#The Modem upgrade failed!\\n\\n\n");
         *qdl_success_flag = 0;
     }
 
     fwrite(qdl_flash.progress_text, sizeof(char), strlen(qdl_flash.progress_text), qdl_flash.progress_fp);
-    fwrite(qdl_flash.progress_percentage, sizeof(char), strlen(qdl_flash.progress_percentage), qdl_flash.progress_fp);
     fflush(qdl_flash.progress_fp);
 
     g_usleep(1000*1000*3);
@@ -3645,7 +3670,7 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
         if(ret == RET_ERROR)
         {
             FIBO_LOG_DEBUG("fread get_port_cmd error\n");
-            memcpy(buf, "dont match fastboot port", strlen("dont match fastboot port") + 1);
+            memcpy(buf, "don't match fastboot port", strlen("don't match fastboot port") + 1);
         }
         else{
             FIBO_LOG_DEBUG("%s\n",buf);

@@ -732,8 +732,8 @@ void *dynamic_thread(void *arg)
     {
         CFG_LOG_DEBUG("wait mesg...");
         msg_size = msgrcv(msg_id, (void *)&msg, msg_len, 0, 0);
-        CFG_LOG_DEBUG("<<<<<--- recive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
-        CFG_LOG_DEBUG("recive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device.device_mode, msg.device.sensor1, msg.device.sensor2, msg.device.sensor3);
+        CFG_LOG_DEBUG("<<<<<--- receive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
+        CFG_LOG_DEBUG("receive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device.device_mode, msg.device.sensor1, msg.device.sensor2, msg.device.sensor3);
         if (msg_size >= 0)
         {
             if (msg.msg_type == MCCMNC_CHANGE)

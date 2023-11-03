@@ -165,7 +165,7 @@ gboolean cfg_get_port_state(void)
     //check port
     if (!send_message_get_response(GET_PORT_STATE,"",0,&response))
     {
-        CFG_LOG_ERROR("GET_PORT_STATE error");
+        // CFG_LOG_ERROR("GET_PORT_STATE error");
         dbus_is_ready = false;
         return false;
     }
@@ -174,15 +174,12 @@ gboolean cfg_get_port_state(void)
     {
         CFG_LOG_INFO("current port is ready!");
         dbus_is_ready = true;
-        if(static_config_set())
-        {
-            return true;
-        }
     }
     else
     {
         dbus_is_ready = false;
-        CFG_LOG_INFO("modem is not ready!");
+        // CFG_LOG_INFO("modem is not ready!");
+        return false;
     }
     return true;
 }
@@ -206,6 +203,11 @@ static gboolean cfg_modem_status_callback(FibocomGdbusHelper *object, const char
             CFG_LOG_ERROR("[get_port_state] error");
             return TRUE;
         }
+
+        if(static_config_set())
+        {
+            return true;
+        }
     }
 
     return TRUE;
@@ -221,7 +223,7 @@ static gboolean cfg_modem_status_callback(FibocomGdbusHelper *object, const char
     {
         sem_post(get_device_sem_id());
     }
-    CFG_LOG_DEBUG("recive userdate :%s\n", (char *)userdata);
+    CFG_LOG_DEBUG("receive userdate :%s\n", (char *)userdata);
 } */
 
 void set_static_config_flg(bool value)
@@ -484,7 +486,7 @@ bool dbus_service_is_ready(void)
     owner_name = g_dbus_proxy_get_name_owner((GDBusProxy *)proxy);
     if (NULL != owner_name)
     {
-        CFG_LOG_DEBUG("Owner Name: %s", owner_name);
+        CFG_LOG_INFO("Owner Name: %s", owner_name);
         g_free(owner_name);
         dbus_is_ready = true;
         return true;

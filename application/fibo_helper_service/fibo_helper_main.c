@@ -62,7 +62,7 @@ fibo_helper_device_check_thread_init()
     return RET_OK;
 }
 
-/* main func cant be blocked at any time! */
+/* main func can't be blocked at any time! */
 gint main(gint argc, char const *argv[])
 {
     gint    ret        = RET_ERROR;

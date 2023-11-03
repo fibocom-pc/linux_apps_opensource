@@ -38,6 +38,7 @@ int main(int argc, char **argv)
     void *dbus_result = NULL;
     void *event_result = NULL;
     void *dynamic_result = NULL;
+    int cnt = 0;
     
     CFG_LOG_OPEN();
     CFG_LOG_INFO("fibo_config_service version:%s", CONFIG_VERSION_STRING);
@@ -62,20 +63,41 @@ int main(int argc, char **argv)
         return 1;
     }
     CFG_LOG_INFO("wait dbus connect service...");
-    while (!dbus_service_is_ready())
+    while ((!dbus_service_is_ready()) || (!cfg_get_port_state()))
     {
-        sleep(1);
+        if(cnt >= 60)
+        {
+            CFG_LOG_ERROR("set error,exit");
+            return 0;
+        }
+        sleep(2);
+        cnt++;
     }
     CFG_LOG_INFO("connect dbus is ready!");
+    cnt = 0;
+    while(1)
+    {
+        if(cnt >= 5)
+        {
+            CFG_LOG_ERROR("set error,exit");
+            return 0;
+        }
+        if(static_config_set())
+        {
+            /* No other configuration items are available. Exit after the configuration is complete */
+            return 0;
+        }
+        sleep(5);
+        cnt++;
+    }
 
     for(int i = 0; i < 3; i++)
     {
         if(static_config_set())
         {
-            // break;
-            /* No other configuration items are available. Exit after the configuration is complete */
-            return 0;
+            break;
         }
+        sleep(5);
     }
     if(!msg_init())
     {

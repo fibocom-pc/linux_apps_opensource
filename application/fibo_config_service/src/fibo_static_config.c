@@ -1149,7 +1149,7 @@ void test_data(void)
     CFG_LOG_DEBUG("skuid:%s", fibo_get_skuid());
 }
 
-bool destory_list_memeory()
+bool destroy_list_memeory()
 {
     config_parse_t *config_list = NULL;
     fibo_wwan_project_xml_t *wwanid_list = NULL;
@@ -1161,7 +1161,7 @@ bool destory_list_memeory()
 
     struct list_head *pos = NULL;
     struct list_head *q = NULL;
-    CFG_LOG_DEBUG("destory list start");
+    CFG_LOG_DEBUG("destroy list start");
     list_for_each_safe(pos, q, &s_ini_list)
     {
         config_list = list_entry(pos, config_parse_t, list);
@@ -1210,7 +1210,7 @@ bool destory_list_memeory()
         list_del(pos);
         free(custom_rule);
     }
-    CFG_LOG_DEBUG("destory list end");
+    CFG_LOG_DEBUG("destroy list end");
     return true;
 }
 
@@ -1498,7 +1498,7 @@ bool fibo_static_config_paese()
     // return true;
     get_current_oem();
     // test_data();
-    // destory_list_memeory(); // destory malloc memory
+    // destroy_list_memeory(); // destroy malloc memory
     result = true;
     return result;
 }
@@ -1534,5 +1534,5 @@ bool static_config_set(void)
 
 void fibo_deinit(void)
 {
-    destory_list_memeory();
+    destroy_list_memeory();
 }

@@ -32,7 +32,7 @@
 #define AT_COMMAND_LEN                   256
 #endif
 
-#define HELPER_VERSION_STRING            "1.0.5"
+#define HELPER_VERSION_STRING            "1.0.6"
 
 // #define MBIM_FUNCTION_SUPPORTED
 

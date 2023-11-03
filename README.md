@@ -87,3 +87,16 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
   fw switch:<br>
   1. Support low-battery upgrade in AC mode.<br>
   2. If the obtained SubSysid is empty, no upgrade is performed.<br>
+
+- version:1.0.6<br>
+  Fix spelling errors in source code<br>
+  
+  helper:<br>
+  1. The optimization progress bar is displayed<br>
+  2. Optimize recovery download logic<br>
+  3. modify helperm abnormal stuck status<br>
+ 
+  fw switch:<br>
+  1. Can't do FW switch after recovery when port state is abnormal on first boot.<br>
+  2. Support monitoring of new package installation.<br>
+  

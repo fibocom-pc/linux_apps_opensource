@@ -64,6 +64,7 @@ typedef struct Mesg
 
 
 void fibo_dus_init(void);
+gboolean cfg_get_port_state(void);
 void set_static_config_flg(bool value);
 bool get_static_config_flg(void);
 bool fibo_dbus_init_status(void);
