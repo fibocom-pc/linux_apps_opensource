@@ -193,6 +193,11 @@ function create_rule()
 ACTION!=\"add|change|move|bind\", GOTO=\"mm_fibocom_linux_apps_port_types_end\"
 SUBSYSTEMS==\"usb\", ATTRS{bInterfaceNumber}==\"?*\", ENV{.MM_USBIFNUM}=\"\$attr{bInterfaceNumber}\"
 
+ATTRS{idVendor}==\"2cb7\", ATTRS{idProduct}==\"01a2\", ENV{.MM_USBIFNUM}==\"02\", SUBSYSTEM==\"tty\", ENV{ID_MM_PORT_IGNORE}=\"1\"
+ATTRS{idVendor}==\"2cb7\", ATTRS{idProduct}==\"01a2\", ENV{.MM_USBIFNUM}==\"03\", SUBSYSTEM==\"tty\", ENV{ID_MM_PORT_IGNORE}=\"1\"
+ATTRS{idVendor}==\"2cb7\", ATTRS{idProduct}==\"01a2\", ENV{.MM_USBIFNUM}==\"04\", ENV{ID_MM_PORT_IGNORE}=\"1\"
+ATTRS{idVendor}==\"2cb7\", ATTRS{idProduct}==\"01a2\", ENV{.MM_USBIFNUM}==\"05\", ENV{ID_MM_PORT_IGNORE}=\"1\"
+
 ATTRS{idVendor}==\"413c\", ATTRS{idProduct}==\"8213\", ENV{.MM_USBIFNUM}==\"02\", SUBSYSTEM==\"tty\", ENV{ID_MM_PORT_IGNORE}=\"1\"
 ATTRS{idVendor}==\"413c\", ATTRS{idProduct}==\"8215\", ENV{.MM_USBIFNUM}==\"02\", SUBSYSTEM==\"tty\", ENV{ID_MM_PORT_IGNORE}=\"1\"
 

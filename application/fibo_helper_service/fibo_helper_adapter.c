@@ -91,6 +91,7 @@ quit_cb (gint user_data)
     gint output_seq_id = RET_ERROR;
     gint input_seq_id  = RET_ERROR;
     gchar cmd_buf[11]  = {0};
+    int ret = RET_ERROR;
 
     input_seq_id  = fibo_adapter_get_helper_seq_id(SEQ_INPUT);
     output_seq_id = fibo_adapter_get_helper_seq_id(SEQ_OUTPUT);
@@ -98,10 +99,10 @@ quit_cb (gint user_data)
     // fibo_adapter_helperd_send_control_message_to_helperm(CTL_MBIM_END, 0, NULL);
 
     sprintf(cmd_buf, "ipcrm -q %d", input_seq_id);
-    system(cmd_buf);
+    ret = system(cmd_buf);
 
     sprintf(cmd_buf, "ipcrm -q %d", output_seq_id);
-    system(cmd_buf);
+    ret = system(cmd_buf);
 
     if (gMainLoop) {
         FIBO_LOG_ERROR ("Caught signal, stopping main loop...\n");

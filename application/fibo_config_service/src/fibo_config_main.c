@@ -22,11 +22,70 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <getopt.h>
 #include "version.h"
-#include "fibo_cfg_log.h"
+#include "fibo_log.h"
 #include "fibo_static_config.h"
 #include "fibo_dynamic_config.h"
 #include "fibo_config_helper.h"
+
+
+
+struct option long_options[] = {
+        {"version", no_argument, NULL, 'v'},
+        {"debug", required_argument, NULL, 'd'},
+        {"loglevel", optional_argument  , NULL, 'l'},
+};
+
+static void print_usage(void)
+{
+    extern const char *__progname;
+    fprintf(stderr,
+            "%s -v -d -l <Level> ...\n",
+            __progname);
+    fprintf(stderr,
+            " -v                     --force                      print  version\n"
+            " -d <debug level:xx>    --debug <debug:num>          LOG Debug\n"
+            " -l <id:file path>      --Level <Level:string>       Level for bin\n"
+            "\n"
+            "Example: \n"
+            "./fibo_flash -v -d -l 7\n");
+}
+
+void log_set(int argc, char *argv[])
+{
+    int option = 0;
+
+    do{
+        option = getopt_long(argc, argv, "vdl:", long_options, NULL);
+        switch (option) {
+            case 'v':
+            FIBO_LOG_ERROR("fibo_flash_service version:%s", CONFIG_VERSION_STRING);
+                break;
+            case 'd':
+            FIBO_LOG_ERROR("option d,%s\n", optarg);
+                g_debug_level = 7;
+                break;
+            case 'l':
+                if(atoi(optarg) >= 0 && atoi(optarg) <= 7)
+                {
+                    g_debug_level = atoi(optarg);
+                }
+                else
+                {
+                    FIBO_LOG_ERROR("log level is invalue :%s\n", optarg);
+                }
+                FIBO_LOG_ERROR("log level is :%s,g_debug_level: %d\n", optarg, g_debug_level);
+                break;
+            case '?':
+                print_usage();
+                break;
+            default:
+                break;
+        }
+
+    }while(option != -1);
+}
 
 int main(int argc, char **argv)
 {
@@ -39,19 +98,19 @@ int main(int argc, char **argv)
     void *event_result = NULL;
     void *dynamic_result = NULL;
     int cnt = 0;
-    
-    CFG_LOG_OPEN();
-    CFG_LOG_INFO("fibo_config_service version:%s", CONFIG_VERSION_STRING);
+
+    FIBO_LOG_INFO("fibo_config_service version:%s", CONFIG_VERSION_STRING);
 
     if (!fibo_static_ini_cfg())
     {
-        CFG_LOG_ERROR("ini file parse error");
+        FIBO_LOG_ERROR("ini file parse error");
         return 1;
     }
+    fibo_set_debug_level();
+    log_set(argc, argv);
     if(0 == fibo_get_start_state())
     {
-        CFG_LOG_INFO("fibo_config_service config not run");
-        CFG_LOG_CLOSE();
+        FIBO_LOG_INFO("fibo_config_service config not run");
         return 0;
     }
 
@@ -59,27 +118,27 @@ int main(int argc, char **argv)
 
     if (!fibo_static_config_paese())
     {
-        CFG_LOG_ERROR("static config error");
+        FIBO_LOG_ERROR("static config error");
         return 1;
     }
-    CFG_LOG_INFO("wait dbus connect service...");
+    FIBO_LOG_INFO("wait dbus connect service...");
     while ((!dbus_service_is_ready()) || (!cfg_get_port_state()))
     {
         if(cnt >= 60)
         {
-            CFG_LOG_ERROR("set error,exit");
+            FIBO_LOG_ERROR("set error,exit");
             return 0;
         }
         sleep(2);
         cnt++;
     }
-    CFG_LOG_INFO("connect dbus is ready!");
+    FIBO_LOG_INFO("connect dbus is ready!");
     cnt = 0;
     while(1)
     {
         if(cnt >= 5)
         {
-            CFG_LOG_ERROR("set error,exit");
+            FIBO_LOG_ERROR("set error,exit");
             return 0;
         }
         if(static_config_set())
@@ -101,40 +160,40 @@ int main(int argc, char **argv)
     }
     if(!msg_init())
     {
-        CFG_LOG_ERROR("msg_init failed");
+        FIBO_LOG_ERROR("msg_init failed");
         return 1;
     }
 
     result = pthread_create(&dynamic_tid, NULL, dynamic_thread, NULL);
     if (result)
     {
-        CFG_LOG_ERROR("create event_from_file_thread error");
+        FIBO_LOG_ERROR("create event_from_file_thread error");
         return 1;
     }
     //first check cueernt mcc
     if(!cfg_get_mcc())
     {
-        CFG_LOG_ERROR("[first check cueernt mcc] error");
+        FIBO_LOG_ERROR("[first check cueernt mcc] error");
     }
     send_event_by_mcc_change();
     get_device_mode_method = fibo_device_mode_get();
     if (1 == get_device_mode_method)
     {
-        CFG_LOG_DEBUG("create event_from_file_thread start");
+        FIBO_LOG_DEBUG("create event_from_file_thread start");
         result = pthread_create(&event_tid, NULL, event_from_file_thread, NULL);
         if (result)
         {
-            CFG_LOG_ERROR("create event_from_file_thread error");
+            FIBO_LOG_ERROR("create event_from_file_thread error");
             return 1;
         }
     }
     else
     {
-        CFG_LOG_DEBUG("create event_from_signal_thread start");
+        FIBO_LOG_DEBUG("create event_from_signal_thread start");
         result = pthread_create(&event_tid, NULL, event_from_signal_thread, NULL);
         if (result)
         {
-            CFG_LOG_ERROR("create event_from_signal_thread error");
+            FIBO_LOG_ERROR("create event_from_signal_thread error");
             return 1;
         }
     }
@@ -146,6 +205,5 @@ int main(int argc, char **argv)
     pthread_join(dynamic_tid, &dynamic_result);
     fibo_deinit();
     dynamic_deinit();
-    CFG_LOG_CLOSE();
     return 0;
 }

@@ -27,7 +27,7 @@
 #include <sys/msg.h>
 #include <semaphore.h>
 #include <sys/sem.h>
-#include "fibo_cfg_log.h"
+#include "fibo_log.h"
 #include "fibo_static_config.h"
 #include "fibo_config_helper.h"
 #include "fibo_dynamic_config.h"
@@ -43,12 +43,12 @@
     do                                                                                                      \
     {                                                                                                       \
         mesg_info *response = NULL;                                                                         \
-        CFG_LOG_INFO("send message to dbus ,cid:%d", cid)                                                   \
+        FIBO_LOG_INFO("send message to dbus ,cid:%d", cid)                                                   \
         if (send_message_get_response(cid, "", 0, &response))                                               \
         {                                                                                                   \
             if (GET_DATA_SUCCESS == response->rtcode)                                                       \
             {                                                                                               \
-                CFG_LOG_DEBUG("set cid:%d success!", cid);                                                  \
+                FIBO_LOG_DEBUG("set cid:%d success!", cid);                                                  \
                 if (STATUS_QUERY == type)                                                                   \
                 {                                                                                           \
                     if (0 == strncmp(response->payload, STATUS_IS_HW, strlen(STATUS_IS_HW)))                \
@@ -66,7 +66,7 @@
                     else                                                                                    \
                     {                                                                                       \
                         status = STATUS_UNKNOWN;                                                            \
-                        CFG_LOG_ERROR("[%d]payload unknown payload:%s", type, response->payload);           \
+                        FIBO_LOG_ERROR("[%d]payload unknown payload:%s", type, response->payload);           \
                     }                                                                                       \
                 }                                                                                           \
                 else if (TYPE_QUERY == type)                                                                \
@@ -82,20 +82,20 @@
                     else                                                                                    \
                     {                                                                                       \
                         status = STATUS_UNKNOWN;                                                            \
-                        CFG_LOG_ERROR("[%d]payload unknown payload:%s", type, response->payload);           \
+                        FIBO_LOG_ERROR("[%d]payload unknown payload:%s", type, response->payload);           \
                     }                                                                                       \
                 }                                                                                           \
             }                                                                                               \
             else                                                                                            \
             {                                                                                               \
                 status = STATUS_UNKNOWN;                                                                    \
-                CFG_LOG_ERROR("set cid:%d fail!", cid);                                                     \
+                FIBO_LOG_ERROR("set cid:%d fail!", cid);                                                     \
             }                                                                                               \
         }                                                                                                   \
         else                                                                                                \
         {                                                                                                   \
             status = STATUS_UNKNOWN;                                                                        \
-            CFG_LOG_ERROR("send message error");                                                            \
+            FIBO_LOG_ERROR("send message error");                                                            \
         }                                                                                                   \
         if (NULL != response)                                                                               \
         {                                                                                                   \
@@ -108,7 +108,7 @@
     do                                                                              \
     {                                                                               \
         mesg_info *response = NULL;                                                 \
-        CFG_LOG_DEBUG("send message to dbus ,cid:%d", cid)                          \
+        FIBO_LOG_DEBUG("send message to dbus ,cid:%d", cid)                          \
         if (send_message_get_response(cid, "", 0, &response))                       \
         {                                                                           \
             if (GET_DATA_SUCCESS == response->rtcode)                               \
@@ -125,13 +125,13 @@
             else                                                                    \
             {                                                                       \
                 status = STATUS_UNKNOWN;                                            \
-                CFG_LOG_ERROR("set cid:%d fail!", cid);                             \
+                FIBO_LOG_ERROR("set cid:%d fail!", cid);                             \
             }                                                                       \
         }                                                                           \
         else                                                                        \
         {                                                                           \
             status = STATUS_UNKNOWN;                                                \
-            CFG_LOG_ERROR("send message error");                                    \
+            FIBO_LOG_ERROR("send message error");                                    \
         }                                                                           \
         if (NULL != response)                                                       \
         {                                                                           \
@@ -149,18 +149,18 @@
             if (GET_DATA_SUCCESS == response->rtcode)                                                                 \
             {                                                                                                         \
                 status = GET_DATA_SUCCESS;                                                                            \
-                CFG_LOG_INFO("set cid:%d success!", cid);                                                             \
+                FIBO_LOG_INFO("set cid:%d success!", cid);                                                             \
             }                                                                                                         \
             else                                                                                                      \
             {                                                                                                         \
                 status = STATUS_UNKNOWN;                                                                              \
-                CFG_LOG_ERROR("set cid:%d fail!", cid);                                                               \
+                FIBO_LOG_ERROR("set cid:%d fail!", cid);                                                               \
             }                                                                                                         \
         }                                                                                                             \
         else                                                                                                          \
         {                                                                                                             \
             status = STATUS_UNKNOWN;                                                                                  \
-            CFG_LOG_INFO("set cid:%d ,retcode:%d,error!", cid, ((response == NULL) ? UNKNOW_CODE : response->rtcode)) \
+            FIBO_LOG_INFO("set cid:%d ,retcode:%d,error!", cid, ((response == NULL) ? UNKNOW_CODE : response->rtcode)) \
         }                                                                                                             \
         if (NULL != response)                                                                                         \
         {                                                                                                             \
@@ -183,7 +183,7 @@ int get_dev_sensor_from_file(const char *key)
     fp = fopen("/opt/fibocom/fibo_config_service/devicemode_sensor.txt", "r");
     if (fp == NULL)
     {
-        // CFG_LOG_ERROR("can not open file:%s", key);
+        // FIBO_LOG_ERROR("can not open file:%s", key);
         return -1;
     }
     while (fgets(strBuf, 64, fp))
@@ -210,7 +210,7 @@ int get_device_mode()
     {
         mode = 0;
     }
-    // CFG_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
+    // FIBO_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
     /* *****test end ***** */
     return mode;
 }
@@ -225,7 +225,7 @@ int get_sensor1()
     {
         sensor = 0;
     }
-    // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
+    // FIBO_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
 }
@@ -240,7 +240,7 @@ int get_sensor2()
     {
         sensor = 0;
     }
-    // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
+    // FIBO_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
 }
@@ -255,7 +255,7 @@ int get_sensor3()
     {
         sensor = 0;
     }
-    // CFG_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
+    // FIBO_LOG_DEBUG("get data Key: %s,value:%d", key,sensor);
     /* *****test end ***** */
     return sensor;
 }
@@ -272,7 +272,7 @@ int get_index_from_file(const char *key)
     fp = fopen("/opt/fibocom/fibo_config_service/bios_index.txt", "r");
     if (fp == NULL)
     {
-        // CFG_LOG_ERROR("can not open file:%s", key);
+        // FIBO_LOG_ERROR("can not open file:%s", key);
         return -1;
     }
     while (fgets(strBuf, 64, fp))
@@ -301,7 +301,7 @@ int get_index_from_bios(char *key)
     {
         index = 0;
     }
-    // CFG_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
+    // FIBO_LOG_DEBUG("get data Key:%s,value:%d", key,mode);
     /* *****test end ***** */
     return index;
 }
@@ -313,9 +313,9 @@ static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, 
     int result = 0;
     msg_st_t msg = {0};
     int msg_len = sizeof(msg_st_t) - sizeof(long int);
-    /* CFG_LOG_DEBUG("devicemode info old device_mode:%d,old sensor1:%d,old sensor2:%d,old sensor3:%d,",
+    /* FIBO_LOG_DEBUG("devicemode info old device_mode:%d,old sensor1:%d,old sensor2:%d,old sensor3:%d,",
                 (int)old_data->device_mode, (int)old_data->sensor1, (int)old_data->sensor2, (int)old_data->sensor3);
-    CFG_LOG_DEBUG("devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
+    FIBO_LOG_DEBUG("devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
                               (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1, (int)new_data->sensor2, (int)new_data->sensor3); */
     if (SARMAP_TYPE_1 == map_type)
     {
@@ -327,7 +327,7 @@ static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, 
         {
             return;
         }
-        CFG_LOG_INFO("devicemode and sensor changed,send message");
+        FIBO_LOG_INFO("devicemode and sensor changed,send message");
         msg.msg_type = DEVICE_MODE_CHANGE;
         msg.device.device_mode = new_data->device_mode;
         msg.device.sensor1 = new_data->sensor1;
@@ -336,7 +336,7 @@ static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, 
         result = msgsnd(msg_id, (void *)&msg, msg_len, 0);
         if (-1 == result)
         {
-            CFG_LOG_ERROR("send mccmnc change event error");
+            FIBO_LOG_ERROR("send mccmnc change event error");
         }
         else
         {
@@ -344,7 +344,7 @@ static void send_event_by_device_mode_change(int msg_id, sar_map_type map_type, 
              old_data.sensor1 = new_data->sensor1;
              old_data.sensor2 = new_data->sensor2;
              old_data.sensor3 = new_data->sensor3; */
-            CFG_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
+            FIBO_LOG_DEBUG("send msg success,devicemode info map_type:%d,device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d,",
                           (int)map_type, (int)new_data->device_mode, (int)new_data->sensor1, (int)new_data->sensor2, (int)new_data->sensor3);
         }
     }
@@ -358,7 +358,7 @@ bool msg_init(void)
 
     if (-1 == msg_id)
     {
-        CFG_LOG_ERROR("create message error ");
+        FIBO_LOG_ERROR("create message error ");
         return NULL;
     }
     return true;
@@ -519,7 +519,7 @@ static bool get_sar_index(msg_st_t *msg, char *mcc, char *index)
         // get index from bios reserved
         char *regulatory = get_region_regulatory(mcc);
         *index = get_index_from_bios(regulatory);
-        CFG_LOG_INFO("get sar index:%d,from bios", *index);
+        FIBO_LOG_INFO("get sar index:%d,from bios", *index);
         return true;
     }
     else if (SLUCTION_TYPE_SW_XML == fibo_get_customizationsolutiontype())
@@ -527,8 +527,8 @@ static bool get_sar_index(msg_st_t *msg, char *mcc, char *index)
         input_data.sar_map_type = fibo_get_sarmaptype();
 
         input_data.standard = get_region_regulatory(mcc);
-        CFG_LOG_DEBUG("wwanconfigid:%s,regulatory:%s", input_data.wwanconfigid, input_data.standard);
-        CFG_LOG_DEBUG("get sar wwanconfigid:%s device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d",
+        FIBO_LOG_DEBUG("wwanconfigid:%s,regulatory:%s", input_data.wwanconfigid, input_data.standard);
+        FIBO_LOG_DEBUG("get sar wwanconfigid:%s device_mode:%d,sensor1:%d,sensor2:%d,sensor3:%d",
                       input_data.wwanconfigid, msg->device.device_mode, msg->device.sensor1,
                       msg->device.sensor2, msg->device.sensor3);
         input_data.device.device_mode = msg->device.device_mode;
@@ -536,7 +536,7 @@ static bool get_sar_index(msg_st_t *msg, char *mcc, char *index)
         input_data.device.sensor2 = msg->device.sensor2;
         input_data.device.sensor3 = msg->device.sensor3;
         result = fibo_get_sar_index(&input_data, index);
-        CFG_LOG_INFO("get sar index:%d,result:%d", *index, result);
+        FIBO_LOG_INFO("get sar index:%d,result:%d", *index, result);
         return result;
     }
     return false;
@@ -562,15 +562,15 @@ static bool set_antenna_index(msg_st_t *msg)
             result = fibo_get_antenna_index(wwanconfigid, msg->device.device_mode, &index);
             if (!result)
             {
-                CFG_LOG_ERROR("not find index from xml");
+                FIBO_LOG_ERROR("not find index from xml");
                 return false;
             }
             sprintf(payload, "%d", index);
-            CFG_LOG_INFO("get antenna index ok,index:%d,payload:%s", index, payload);
+            FIBO_LOG_INFO("get antenna index ok,index:%d,payload:%s", index, payload);
             SET_DYNAMIC_CONFIG(SET_ANTENNA_INDEX, payload, strlen(payload), status);
             if (GET_DATA_SUCCESS == status)
             {
-                CFG_LOG_INFO("set antenna index:%d success!", index);
+                FIBO_LOG_INFO("set antenna index:%d success!", index);
                 return true;
             }
         }
@@ -588,7 +588,7 @@ static bool set_sar_index(msg_st_t *msg, char *mcc, bool is_simchange)
     int status = 0;
     char payload[8] = {0};
 
-    CFG_LOG_DEBUG("sartype:%d", sartype);
+    FIBO_LOG_DEBUG("sartype:%d", sartype);
     if (is_simchange)
     {
         if (DOWN_LOAD_AT == get_sardownloadtype())
@@ -614,15 +614,15 @@ static bool set_sar_index(msg_st_t *msg, char *mcc, bool is_simchange)
                 ret = get_sar_index(msg, mcc, &sar_index);
                 if (!ret)
                 {
-                    CFG_LOG_ERROR("not find index from xml");
+                    FIBO_LOG_ERROR("not find index from xml");
                     return false;
                 }
                 sprintf(payload, "%d", sar_index);
-                CFG_LOG_INFO("get sar index ok,index:%d,payload:%s", sar_index, payload);
+                FIBO_LOG_INFO("get sar index ok,index:%d,payload:%s", sar_index, payload);
                 SET_DYNAMIC_CONFIG(SET_BODYSAR_INDEX, payload, strlen(payload), status);
                 if (GET_DATA_SUCCESS == status)
                 {
-                    CFG_LOG_INFO("set bodysar index:%d success!", sar_index);
+                    FIBO_LOG_INFO("set bodysar index:%d success!", sar_index);
                     return true;
                 }
             }
@@ -637,15 +637,15 @@ static bool set_sar_index(msg_st_t *msg, char *mcc, bool is_simchange)
                 ret = get_sar_index(msg, mcc, &sar_index);
                 if (!ret)
                 {
-                    CFG_LOG_ERROR("not find index from xml");
+                    FIBO_LOG_ERROR("not find index from xml");
                     return false;
                 }
                 sprintf(payload, "%d", sar_index);
-                CFG_LOG_INFO("get sar index ok,index:%d,payload:%s", sar_index, payload);
+                FIBO_LOG_INFO("get sar index ok,index:%d,payload:%s", sar_index, payload);
                 SET_DYNAMIC_CONFIG(SET_TASAR_INDEX, payload, strlen(payload), status);
                 if (GET_DATA_SUCCESS == status)
                 {
-                    CFG_LOG_INFO("set tasar index:%d success!", sar_index);
+                    FIBO_LOG_INFO("set tasar index:%d success!", sar_index);
                     return true;
                 }
             }
@@ -659,10 +659,10 @@ static bool set_sar_antenna_config(msg_st_t *msg, char *mcc, bool is_simchange)
 
     if (old_data.device_mode == msg->device.device_mode && old_data.sensor1 == msg->device.sensor1 && old_data.sensor2 == msg->device.sensor2 && old_data.sensor3 == msg->device.sensor3)
     {
-        CFG_LOG_INFO("devicemode and sensor not change not send index...")
+        FIBO_LOG_INFO("devicemode and sensor not change not send index...")
         return true;
     }
-    CFG_LOG_DEBUG("[old]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[new]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[mcc]:%s",
+    FIBO_LOG_DEBUG("[old]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[new]:device_mode:%d,sensor1:%d,sensor2:%d sensor3:%d[mcc]:%s",
                   old_data.device_mode, old_data.sensor1,
                   old_data.sensor2, old_data.sensor3, msg->device.device_mode, msg->device.sensor1,
                   msg->device.sensor2, msg->device.sensor3, mcc);
@@ -683,7 +683,7 @@ void get_regulatory_from_xml(char *mcc,char *regulatory)
     char mcc_data[16] = {0};
     if(NULL == mcc)
     {
-        CFG_LOG_DEBUG("mcc is NULL,using default");
+        FIBO_LOG_DEBUG("mcc is NULL,using default");
         strncpy(mcc_data, "default", strlen("default"));
     }
     else
@@ -730,10 +730,10 @@ void *dynamic_thread(void *arg)
 
     while (1)
     {
-        CFG_LOG_DEBUG("wait mesg...");
+        FIBO_LOG_DEBUG("wait mesg...");
         msg_size = msgrcv(msg_id, (void *)&msg, msg_len, 0, 0);
-        CFG_LOG_DEBUG("<<<<<--- receive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
-        CFG_LOG_DEBUG("receive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device.device_mode, msg.device.sensor1, msg.device.sensor2, msg.device.sensor3);
+        FIBO_LOG_DEBUG("<<<<<--- receive msg,msg_size:%d,msg_type:%d", msg_size, (int)msg.msg_type);
+        FIBO_LOG_DEBUG("receive msg,mcc:%s,devicemode:%d,sensor1:%d,sensor2:%d,sensor3:%d", msg.mccmnc, msg.device.device_mode, msg.device.sensor1, msg.device.sensor2, msg.device.sensor3);
         if (msg_size >= 0)
         {
             if (msg.msg_type == MCCMNC_CHANGE)

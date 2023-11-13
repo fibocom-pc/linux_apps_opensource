@@ -27,7 +27,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include "fibo_parse_xml.h"
-#include "fibo_cfg_log.h"
+#include "fibo_log.h"
 
 bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                              struct list_head *list_sku, struct list_head *list_mcc)
@@ -38,26 +38,26 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
     xmlChar *data = NULL;
     if (NULL == filename || NULL == xmldata || NULL == list_sku || NULL == list_mcc)
     {
-        CFG_LOG_ERROR("input para error ,exit");
+        FIBO_LOG_ERROR("input para error ,exit");
         return false;
     }
-    CFG_LOG_DEBUG("filename:%s", filename);
+    FIBO_LOG_DEBUG("filename:%s", filename);
     doc = xmlParseFile(filename);
     if (NULL == doc)
     {
-        CFG_LOG_ERROR("esim xml parse get file error!");
+        FIBO_LOG_ERROR("esim xml parse get file error!");
         return false;
     }
     node = xmlDocGetRootElement(doc);
     if (NULL == node)
     {
-        CFG_LOG_ERROR("esim xml parse get root error!");
+        FIBO_LOG_ERROR("esim xml parse get root error!");
         xmlFreeDoc(doc);
         return false;
     }
     if (xmlStrcmp(node->name, (const xmlChar *)"EsimDiableTable"))
     {
-        CFG_LOG_ERROR("esim xml parse node error!");
+        FIBO_LOG_ERROR("esim xml parse node error!");
         xmlFreeDoc(doc);
         return false;
     }
@@ -76,7 +76,7 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                 xmldata->esim_enable = false;
             }
             xmlFree(data);
-            // CFG_LOG_DEBUG("esim_enable:%d\n", xmldata->esim_enable);
+            // FIBO_LOG_DEBUG("esim_enable:%d\n", xmldata->esim_enable);
         }
         if (!xmlStrcmp(node->name, (const xmlChar *)"CustPath"))
         {
@@ -86,7 +86,7 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                 strncpy(xmldata->SystemSKU_path, data, strlen(data));
             }
             xmlFree(data);
-            // CFG_LOG_DEBUG("SystemSKU_path:%s", xmldata->SystemSKU_path);
+            // FIBO_LOG_DEBUG("SystemSKU_path:%s", xmldata->SystemSKU_path);
         }
         if (!xmlStrcmp(node->name, (const xmlChar *)"MatchType"))
         {
@@ -96,7 +96,7 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                 strncpy(xmldata->SelectType, data, strlen(data));
             }
             xmlFree(data);
-            CFG_LOG_DEBUG("SelectType:%s", xmldata->SelectType);
+            FIBO_LOG_DEBUG("SelectType:%s", xmldata->SelectType);
 
             xmlNodePtr type_node = node->xmlChildrenNode;
             while (NULL != type_node)
@@ -126,7 +126,7 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                             xmldata->selet_method.end = atoi(data);
                             xmlFree(data);
                         }
-                        CFG_LOG_DEBUG("node_name:%s,num:%d,start:%d,end:%d", xmldata->selet_method.name, (int)xmldata->selet_method.num,
+                        FIBO_LOG_DEBUG("node_name:%s,num:%d,start:%d,end:%d", xmldata->selet_method.name, (int)xmldata->selet_method.num,
                                       (int)xmldata->selet_method.start, (int)xmldata->selet_method.end);
                     }
                 }
@@ -151,11 +151,11 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                             strncpy(sku_black->sku, data, strlen(data));
                             list_add_tail(&sku_black->list, list_sku);
                             xmlFree(data);
-                            // CFG_LOG_DEBUG("sku_black_list:%s", sku_black->sku);
+                            // FIBO_LOG_DEBUG("sku_black_list:%s", sku_black->sku);
                         }
                         else
                         {
-                            CFG_LOG_ERROR("get memory error!");
+                            FIBO_LOG_ERROR("get memory error!");
                             xmlFreeDoc(doc);
                             return false;
                         }
@@ -182,11 +182,11 @@ bool fibo_parse_esim_xml_data(char *filename, esim_xml_parse_rule_t *xmldata,
                             strncpy(mcc_black->mcc, data, strlen(data));
                             list_add_tail(&mcc_black->list, list_mcc);
                             xmlFree(data);
-                            CFG_LOG_DEBUG("mcc_black_list:%s", mcc_black->mcc);
+                            FIBO_LOG_DEBUG("mcc_black_list:%s", mcc_black->mcc);
                         }
                         else
                         {
-                            CFG_LOG_ERROR("get memory error!");
+                            FIBO_LOG_ERROR("get memory error!");
                             xmlFreeDoc(doc);
                             return false;
                         }
@@ -210,27 +210,27 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
     xmlChar *data = NULL;
     if (NULL == filename || NULL == version || NULL == select_rule_list || NULL == sar_custom_list)
     {
-        CFG_LOG_ERROR("input para error ,exit");
+        FIBO_LOG_ERROR("input para error ,exit");
         return false;
     }
-    CFG_LOG_DEBUG("filename:%s", filename);
+    FIBO_LOG_DEBUG("filename:%s", filename);
     doc = xmlParseFile(filename);
     if (NULL == doc)
     {
-        CFG_LOG_ERROR("esim xml parse get file error!");
+        FIBO_LOG_ERROR("esim xml parse get file error!");
         return false;
     }
     node = xmlDocGetRootElement(doc);
     if (NULL == node)
     {
-        CFG_LOG_ERROR("esim xml parse get root error!");
+        FIBO_LOG_ERROR("esim xml parse get root error!");
         xmlFreeDoc(doc);
         return false;
     }
-    CFG_LOG_DEBUG("node:%s", (char *)node->name);
+    FIBO_LOG_DEBUG("node:%s", (char *)node->name);
     if (xmlStrcmp(node->name, (const xmlChar *)"RegionSwitchTable"))
     {
-        CFG_LOG_ERROR("esim xml parse node error!");
+        FIBO_LOG_ERROR("esim xml parse node error!");
         xmlFreeDoc(doc);
         return false;
     }
@@ -251,17 +251,17 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
                 {
                     strncpy(version, data, strlen(data));
                     xmlFree(data);
-                    CFG_LOG_DEBUG("version:%s", version);
+                    FIBO_LOG_DEBUG("version:%s", version);
                     xmlNodePtr select_node = node->xmlChildrenNode;
                     while (NULL != select_node)
                     {
-                        // CFG_LOG_DEBUG("select_node:%s", (char *)select_node->name);
+                        // FIBO_LOG_DEBUG("select_node:%s", (char *)select_node->name);
                         if (!xmlStrcmp(select_node->name, (const xmlChar *)"SelectionRule"))
                         {
                             xmlNodePtr rule_node = select_node->xmlChildrenNode;
                             while (NULL != rule_node)
                             {
-                                // CFG_LOG_DEBUG("rule_node:%s", (char *)rule_node->name);
+                                // FIBO_LOG_DEBUG("rule_node:%s", (char *)rule_node->name);
                                 if (!xmlStrcmp(rule_node->name, (const xmlChar *)"Region"))
                                 {
                                     fibo_select_rule_xml_t *rule_list = NULL;
@@ -288,11 +288,11 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
                                             xmlFree(data);
                                         }
                                         list_add_tail(&rule_list->list, select_rule_list);
-                                        // CFG_LOG_DEBUG("mcc:%s,Regulatory:%s,Country:%s", rule_list->mcc, rule_list->regulatory, rule_list->country);
+                                        // FIBO_LOG_DEBUG("mcc:%s,Regulatory:%s,Country:%s", rule_list->mcc, rule_list->regulatory, rule_list->country);
                                     }
                                     else
                                     {
-                                        CFG_LOG_ERROR("get memory error!");
+                                        FIBO_LOG_ERROR("get memory error!");
                                         xmlFreeDoc(doc);
                                         return false;
                                     }
@@ -305,7 +305,7 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
                             xmlNodePtr custom_node = select_node->xmlChildrenNode;
                             while (NULL != custom_node)
                             {
-                                // CFG_LOG_DEBUG("custom_node:%s", (char *)custom_node->name);
+                                // FIBO_LOG_DEBUG("custom_node:%s", (char *)custom_node->name);
                                 if (!xmlStrcmp(custom_node->name, (const xmlChar *)"SarSwitch"))
                                 {
                                     fibo_sar_custom_t *custom_list = NULL;
@@ -332,12 +332,12 @@ bool fibo_parse_region_mapping_data(char *filename, char *parse_ver, char *versi
                                             xmlFree(data);
                                         }
                                         list_add_tail(&custom_list->list, sar_custom_list);
-                                        /* CFG_LOG_DEBUG("Regulatory:%s,SAR_TYPE:%s,DB_OFFSET_Enable:%s", custom_list->regulatory,\
+                                        /* FIBO_LOG_DEBUG("Regulatory:%s,SAR_TYPE:%s,DB_OFFSET_Enable:%s", custom_list->regulatory,\
                                                       custom_list->sar_type, custom_list->db_offset_enable); */
                                     }
                                     else
                                     {
-                                        CFG_LOG_ERROR("get memory error!");
+                                        FIBO_LOG_ERROR("get memory error!");
                                         xmlFreeDoc(doc);
                                         return false;
                                     }
@@ -369,26 +369,26 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
     xmlChar *data = NULL;
     if (NULL == filename || NULL == xmldata)
     {
-        CFG_LOG_ERROR("input para error ,exit");
+        FIBO_LOG_ERROR("input para error ,exit");
         return false;
     }
-    CFG_LOG_DEBUG("filename:%s", filename);
+    FIBO_LOG_DEBUG("filename:%s", filename);
     doc = xmlParseFile(filename);
     if (NULL == doc)
     {
-        CFG_LOG_ERROR("devicemode xml parse get file error!");
+        FIBO_LOG_ERROR("devicemode xml parse get file error!");
         return false;
     }
     node = xmlDocGetRootElement(doc);
     if (NULL == node)
     {
-        CFG_LOG_ERROR("devicemode xml parse get root error!");
+        FIBO_LOG_ERROR("devicemode xml parse get root error!");
         xmlFreeDoc(doc);
         return false;
     }
     if (xmlStrcmp(node->name, (const xmlChar *)"SarAntTableIndex"))
     {
-        CFG_LOG_ERROR("devicemode xml parse node error!");
+        FIBO_LOG_ERROR("devicemode xml parse node error!");
         xmlFreeDoc(doc);
         return false;
     }
@@ -407,7 +407,7 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
                 xmldata->select_index_enable = false;
             }
             xmlFree(data);
-            CFG_LOG_DEBUG("esim_enable:%d", xmldata->select_index_enable);
+            FIBO_LOG_DEBUG("esim_enable:%d", xmldata->select_index_enable);
         }
         if (!xmlStrcmp(node->name, (const xmlChar *)"WwanDeviceConfigureIDTable"))
         {
@@ -471,7 +471,7 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
                         strncpy(xmldata->selectType, data, strlen(data));
                     }
                     xmlFree(data);
-                    CFG_LOG_DEBUG("SelectType:%s", xmldata->selectType);
+                    FIBO_LOG_DEBUG("SelectType:%s", xmldata->selectType);
 
                     xmlNodePtr type_node = idable_node->xmlChildrenNode;
                     while (NULL != type_node)
@@ -501,7 +501,7 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
                                     xmldata->selet_method.end = atoi(data);
                                     xmlFree(data);
                                 }
-                                CFG_LOG_DEBUG("node_name:%s,num:%d,start:%d,end:%d", xmldata->selet_method.name, (int)xmldata->selet_method.num,
+                                FIBO_LOG_DEBUG("node_name:%s,num:%d,start:%d,end:%d", xmldata->selet_method.name, (int)xmldata->selet_method.num,
                                               (int)xmldata->selet_method.start, (int)xmldata->selet_method.end);
                             }
                         }
@@ -533,11 +533,11 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
                                     xmlFree(data);
                                 }
                                 list_add_tail(&wwan_project_list->list, &xmldata->wwan_project_list);
-                                // CFG_LOG_DEBUG("wwanconfigid:%s,projectid:%s", wwan_project_list->wwanconfigid, wwan_project_list->projectid);
+                                // FIBO_LOG_DEBUG("wwanconfigid:%s,projectid:%s", wwan_project_list->wwanconfigid, wwan_project_list->projectid);
                             }
                             else
                             {
-                                CFG_LOG_ERROR("get memory error!");
+                                FIBO_LOG_ERROR("get memory error!");
                                 xmlFreeDoc(doc);
                                 return false;
                             }
@@ -567,11 +567,11 @@ bool fibo_parse_devicemode_static_data(char *filename, devicemode_static_xml_par
                             xmlFree(data);
                         }
                         list_add_tail(&wwancfg_disable_data->list, &xmldata->wwancfg_disable_list);
-                        // CFG_LOG_DEBUG("wwanconfigid:%s", wwancfg_disable_data->wwanconfigid);
+                        // FIBO_LOG_DEBUG("wwanconfigid:%s", wwancfg_disable_data->wwanconfigid);
                     }
                     else
                     {
-                        CFG_LOG_ERROR("get memory error!");
+                        FIBO_LOG_ERROR("get memory error!");
                         xmlFreeDoc(doc);
                         return false;
                     }
@@ -594,26 +594,26 @@ bool fibo_parse_antenna_dynamic_data(char *filename, fibo_antenna_xml_t *xmldata
     xmlChar *data = NULL;
     if (NULL == filename || NULL == xmldata)
     {
-        CFG_LOG_ERROR("input para error ,exit");
+        FIBO_LOG_ERROR("input para error ,exit");
         return false;
     }
-    CFG_LOG_DEBUG("filename:%s", filename);
+    FIBO_LOG_DEBUG("filename:%s", filename);
     doc = xmlParseFile(filename);
     if (NULL == doc)
     {
-        CFG_LOG_ERROR("devicemode xml parse get file error!");
+        FIBO_LOG_ERROR("devicemode xml parse get file error!");
         return false;
     }
     node = xmlDocGetRootElement(doc);
     if (NULL == node)
     {
-        CFG_LOG_ERROR("devicemode xml parse get root error!");
+        FIBO_LOG_ERROR("devicemode xml parse get root error!");
         xmlFreeDoc(doc);
         return false;
     }
     if (xmlStrcmp(node->name, (const xmlChar *)"SarAntTableIndex"))
     {
-        CFG_LOG_ERROR("devicemode xml parse node error!");
+        FIBO_LOG_ERROR("devicemode xml parse node error!");
         xmlFreeDoc(doc);
         return false;
     }
@@ -637,14 +637,14 @@ bool fibo_parse_antenna_dynamic_data(char *filename, fibo_antenna_xml_t *xmldata
                             if (0 == strcmp(xmldata->wwanconfig_id, data))
                             {
                                 configid_node = wwanid_node;
-                                CFG_LOG_DEBUG("find wwanconfig_id:%s", data);
+                                FIBO_LOG_DEBUG("find wwanconfig_id:%s", data);
                                 xmlFree(data);
                                 break;
                             }
                             else if (0 == strcmp(data, "default"))
                             {
                                 configid_node = wwanid_node;
-                                CFG_LOG_DEBUG("find default wwanconfig_id:%s,pc configid:%s", data, xmldata->wwanconfig_id);
+                                FIBO_LOG_DEBUG("find default wwanconfig_id:%s,pc configid:%s", data, xmldata->wwanconfig_id);
                                 xmlFree(data);
                             }
                         }
@@ -988,7 +988,7 @@ bool fibo_parse_devicemode_index_data(char *filename, char *wwanconfig_id, char 
     xmlChar *data = NULL;
     if (NULL == filename || NULL == map_type || NULL == xmldata)
     {
-        CFG_LOG_ERROR("input para error ,exit");
+        FIBO_LOG_ERROR("input para error ,exit");
         return false;
     }
 
@@ -996,23 +996,23 @@ bool fibo_parse_devicemode_index_data(char *filename, char *wwanconfig_id, char 
     {
     }
 
-    CFG_LOG_DEBUG("filename:%s", filename);
+    FIBO_LOG_DEBUG("filename:%s", filename);
     doc = xmlParseFile(filename);
     if (NULL == doc)
     {
-        CFG_LOG_ERROR("devicemode xml parse get file error!");
+        FIBO_LOG_ERROR("devicemode xml parse get file error!");
         return false;
     }
     node = xmlDocGetRootElement(doc);
     if (NULL == node)
     {
-        CFG_LOG_ERROR("devicemode xml parse get root error!");
+        FIBO_LOG_ERROR("devicemode xml parse get root error!");
         xmlFreeDoc(doc);
         return false;
     }
     if (xmlStrcmp(node->name, (const xmlChar *)"SarAntTableIndex"))
     {
-        CFG_LOG_ERROR("devicemode xml parse node error!");
+        FIBO_LOG_ERROR("devicemode xml parse node error!");
         xmlFreeDoc(doc);
         return false;
     }
@@ -1033,14 +1033,14 @@ bool fibo_parse_devicemode_index_data(char *filename, char *wwanconfig_id, char 
                         if (0 == strcmp(wwanconfig_id, data))
                         {
                             configid_node = wwanid_node;
-                            CFG_LOG_DEBUG("find wwanconfig_id:%s", data);
+                            FIBO_LOG_DEBUG("find wwanconfig_id:%s", data);
                             xmlFree(data);
                             break;
                         }
                         else if (0 == strcmp(data, "default"))
                         {
                             configid_node = wwanid_node;
-                            CFG_LOG_DEBUG("find default wwanconfig_id:%s,pc configid:%s", data, wwanconfig_id);
+                            FIBO_LOG_DEBUG("find default wwanconfig_id:%s,pc configid:%s", data, wwanconfig_id);
                             xmlFree(data);
                         }
                     }
@@ -1066,7 +1066,7 @@ bool fibo_parse_devicemode_index_data(char *filename, char *wwanconfig_id, char 
                                     fibo_sar_xml1_t *xml_data = (fibo_sar_xml1_t *)xmldata;
                                     xmlNodePtr stand_node = sartype_node->xmlChildrenNode;
                                     ret = sar_get_sar_type1_index(sartype_node, xml_data);
-                                    CFG_LOG_INFO("INDEX:%d", (int)xml_data->index);
+                                    FIBO_LOG_INFO("INDEX:%d", (int)xml_data->index);
                                     goto PARSE_END;
                                 }
                                 else if (!xmlStrcmp(sartype_node->name, (const xmlChar *)SAR_MAP_TYPE_2) && 0 == strcmp(map_type, SAR_MAP_TYPE_2))
@@ -1074,28 +1074,28 @@ bool fibo_parse_devicemode_index_data(char *filename, char *wwanconfig_id, char 
                                     fibo_sar_xml2_t *xml_data = (fibo_sar_xml2_t *)xmldata;
                                     xmlNodePtr stand_node = sartype_node->xmlChildrenNode;
                                     ret = sar_get_sar_type2_index(sartype_node, xml_data);
-                                    CFG_LOG_INFO("INDEX:%d", (int)xml_data->index);
+                                    FIBO_LOG_INFO("INDEX:%d", (int)xml_data->index);
                                 }
                                 else if (!xmlStrcmp(sartype_node->name, (const xmlChar *)SAR_MAP_TYPE_3) && 0 == strcmp(map_type, SAR_MAP_TYPE_3))
                                 {
                                     fibo_sar_xml3_t *xml_data = (fibo_sar_xml3_t *)xmldata;
                                     xmlNodePtr stand_node = sartype_node->xmlChildrenNode;
                                     ret = sar_get_sar_type3_index(sartype_node, xml_data);
-                                    CFG_LOG_INFO("INDEX:%d", (int)xml_data->index);
+                                    FIBO_LOG_INFO("INDEX:%d", (int)xml_data->index);
                                 }
                                 else if (!xmlStrcmp(sartype_node->name, (const xmlChar *)SAR_MAP_TYPE_4) && 0 == strcmp(map_type, SAR_MAP_TYPE_4))
                                 {
                                     fibo_sar_xml4_t *xml_data = (fibo_sar_xml4_t *)xmldata;
                                     xmlNodePtr stand_node = sartype_node->xmlChildrenNode;
                                     ret = sar_get_sar_type4_index(sartype_node, xml_data);
-                                    CFG_LOG_INFO("INDEX:%d", (int)xml_data->index);
+                                    FIBO_LOG_INFO("INDEX:%d", (int)xml_data->index);
                                 }
                                 else if (!xmlStrcmp(sartype_node->name, (const xmlChar *)SAR_MAP_TYPE_5) && 0 == strcmp(map_type, SAR_MAP_TYPE_5))
                                 {
                                     fibo_sar_xml5_t *xml_data = (fibo_sar_xml5_t *)xmldata;
                                     xmlNodePtr stand_node = sartype_node->xmlChildrenNode;
                                     ret = sar_get_sar_type5_index(sartype_node, xml_data);
-                                    CFG_LOG_INFO("INDEX:%d", (int)xml_data->index);
+                                    FIBO_LOG_INFO("INDEX:%d", (int)xml_data->index);
                                 }
                                 sartype_node = sartype_node->next;
                             }

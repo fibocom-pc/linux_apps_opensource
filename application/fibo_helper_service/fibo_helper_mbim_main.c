@@ -60,7 +60,7 @@ fibo_main_receiver_init()
 }
 
 /* main func can't be blocked at any time! */
-gint main(gint argc, char const *argv[])
+gint main(gint argc, char *argv[])
 {
     guint   owner_id        = 0;
     gint    ret             = RET_ERROR;
@@ -70,6 +70,8 @@ gint main(gint argc, char const *argv[])
     #if !GLIB_CHECK_VERSION (2,35,0)
     g_type_init ();
     #endif
+
+    log_set(argc, argv);
 
     // step1: init a thread to get control message, aka, mbim init and close.
     ret = fibo_helperm_control_receiver_init();

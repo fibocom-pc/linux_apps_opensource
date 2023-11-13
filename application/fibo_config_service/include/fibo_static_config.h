@@ -168,6 +168,7 @@ bool fibo_get_sar_index(sar_index_para_t *input_data, char *index);
 
 bool fibo_get_antenna_index(char *wwanconfigid, char device_mode, char *index);
 
+bool fibo_set_debug_level(void);
 char *fibo_get_wwanconfigid(void);
 char *fibo_get_skuid(void);
 bool fibo_set_disableesim_for_mcc(void);

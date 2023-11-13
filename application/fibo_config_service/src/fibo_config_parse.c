@@ -25,7 +25,7 @@
 #include "iniparser.h"
 #include "fibo_config_parse.h"
 #include "fibo_list.h"
-#include "fibo_cfg_log.h"
+#include "fibo_log.h"
 
 #define KEY_NAME_COUNT 64
 
@@ -41,7 +41,7 @@ int fibo_config_parse(char *ini_path, struct list_head *list_data)
     d = iniparser_load(ini_path);
     if (NULL == d)
     {
-        CFG_LOG_ERROR("parse %s failed\n", ini_path);
+        FIBO_LOG_ERROR("parse %s failed\n", ini_path);
         return -1;
     }
 
@@ -62,7 +62,7 @@ int fibo_config_parse(char *ini_path, struct list_head *list_data)
             config_data = malloc(sizeof(config_parse_t)+1);
             if (NULL == config_data)
             {
-                CFG_LOG_ERROR("Failed to allocate config");
+                FIBO_LOG_ERROR("Failed to allocate config");
                 return -1;
             }
             memset(config_data, 0, sizeof(config_parse_t));

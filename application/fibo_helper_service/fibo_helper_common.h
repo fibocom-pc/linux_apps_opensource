@@ -27,12 +27,12 @@
 #include "stdio.h"
 #include "common/fibo_log.h"
 #include "common/fibo_helper_cid.h"
+#include "version.h"
 
 #ifndef AT_COMMAND_LEN
 #define AT_COMMAND_LEN                   256
 #endif
 
-#define HELPER_VERSION_STRING            "1.0.6"
 
 // #define MBIM_FUNCTION_SUPPORTED
 

@@ -45,8 +45,10 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include "safe_str_lib.h"
+#include "version.h"
 
 #include "fibocom-helper-gdbus-generated.h"
+#include "fibo_log.h"
 
 #define AT_COMMAND_LEN    (256)
 #define CMD_OUTPUT_LEN    (64)
@@ -57,61 +59,6 @@
 #define FWPACKAGE_PATH   "/opt/fibocom/fibo_fw_pkg/FwPackage/"
 #define DEV_PKG_PATH     "/opt/fibocom/fibo_fw_pkg/FwPackage/DEV_OTA_PACKAGE/"
 #define FILE_MONITOR_PATH "/opt/fibocom/fibo_fw_pkg/"
-#define FLASH_VERSION_STRING "1.0.6"
-
-extern int g_debug_level;
-
-#define FIBO_LOG_OPEN(module) openlog(module, LOG_CONS | LOG_PID, LOG_USER);
-
-#define FIBO_LOG_CRITICAL(log, ...) \
-{\
-    if (LOG_CRIT <= g_debug_level)\
-    {\
-        syslog(LOG_CRIT, "[Critical]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-     }\
-}
-
-#define FIBO_LOG_ERROR(log, ...) \
-{\
-    if (LOG_ERR <= g_debug_level)\
-    {\
-        syslog(LOG_ERR, "[Error]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-     }\
-}
-
-#define FIBO_LOG_NOTICE(log, ...) \
-{\
-    if (LOG_NOTICE <= g_debug_level)\
-    {\
-        syslog(LOG_NOTICE, "[Notice]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-    }\
-}
-
-#define FIBO_LOG_WARNING(log, ...) \
-{\
-    if (LOG_WARNING <= g_debug_level)\
-    {\
-        syslog(LOG_WARNING, "[Warning]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-     }\
-}
-
-#define FIBO_LOG_INFO(log, ...) \
-{\
-     if (LOG_INFO <= g_debug_level)\
-    {\
-        syslog(LOG_INFO, "[Info]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-    }\
-}
-
-#define FIBO_LOG_DEBUG(log, ...) \
-{ \
-    if (LOG_DEBUG <= g_debug_level)\
-    {\
-        syslog(LOG_DEBUG, "[Debug]: %s:%u: "log, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-    }\
-}
-
-#define FIBO_LOG_CLOSE closelog();
 
 #define DEV_SUBSYSID_LEN (32)
 #define DEV_IMEI_LEN     (32)

@@ -99,4 +99,7 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
   fw switch:<br>
   1. Can't do FW switch after recovery when port state is abnormal on first boot.<br>
   2. Support monitoring of new package installation.<br>
-  
+
+- version:1.0.7<br>
+  1. modify source code compiling warning<br>
+  2. modify all service log format<br>

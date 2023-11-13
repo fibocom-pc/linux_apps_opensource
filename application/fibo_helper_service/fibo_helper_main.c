@@ -63,12 +63,14 @@ fibo_helper_device_check_thread_init()
 }
 
 /* main func can't be blocked at any time! */
-gint main(gint argc, char const *argv[])
+gint main(gint argc, char *argv[])
 {
     gint    ret        = RET_ERROR;
 
     FIBO_LOG_OPEN ("helper");
     FIBO_LOG_INFO("fibo_helper_service version:%s", HELPER_VERSION_STRING);
+
+    log_set(argc, argv);
 
     // cause other service will call helper to execute command, here must register it to dbus firstly.
     ret = fibo_register_helper_service();

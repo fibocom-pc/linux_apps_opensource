@@ -39,14 +39,13 @@ include_directories(${CMAKE_SOURCE_DIR}/application/include/common)
 
 set(HELPER_MAJOR_VERSION 1)
 set(HELPER_MINOR_VERSION 0)
-set(HELPER_PATCH_VERSION 0)
+set(HELPER_PATCH_VERSION 7)
 
 set(HELPER_VERSION_STRING ${HELPER_MAJOR_VERSION}.${HELPER_MINOR_VERSION}.${HELPER_PATCH_VERSION})
-
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"
+                "./version.h")
 set(CMAKE_C_COMPILER gcc)
 set(HELPER_PREPROCESSOR_DEF "-fstack-protector-strong -O2 -Wformat -Wformat-security  -fPIC -std=gnu99")
-add_definitions(${FLAH_PREPROCESSOR_DEF})
-
 ##################################
 # Fibocom linux helper service binary configuration
 
@@ -66,12 +65,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include
                     /usr/include/ModemManager
                     ${CMAKE_CURRENT_SOURCE_DIR})
 
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../libs)
-
 set(helperd_source_files
     fibo_helper_main.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
+        fibo_helper_log.c
         generated/fibocom-helper-gdbus-generated.c
     )
 
@@ -79,11 +77,13 @@ set(helperm_source_files
     fibo_helper_mbim_main.c
     fibo_helper_basic_func.c
     fibo_helper_adapter.c
+        fibo_helper_log.c
         generated/fibocom-helper-gdbus-generated.c
     )
 
 add_subdirectory(./at_channel code)
 
+add_definitions(${HELPER_PREPROCESSOR_DEF})
 add_executable(fibo_helperd
     ${helperd_source_files})
 

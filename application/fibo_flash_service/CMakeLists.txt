@@ -26,13 +26,15 @@ execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/FwUpdate.ini ${PROJECT_BI
 
 set(FLASH_MAJOR_VERSION 1)
 set(FLASH_MINOR_VERSION 0)
-set(FLASH_PATCH_VERSION 0)
+set(FLASH_PATCH_VERSION 7)
 
 set(FLASH_VERSION_STRING ${FLASH_MAJOR_VERSION}.${FLASH_MINOR_VERSION}.${FLASH_PATCH_VERSION})
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"
+                "./version.h")
 set(CMAKE_C_COMPILER gcc)
 set(FLASH_PREPROCESSOR_DEF "-fstack-protector-strong -O2 -Wformat -Wformat-security  -fPIC -std=gnu99")
-add_definitions(${FLAH_PREPROCESSOR_DEF})
+add_definitions(${FLASH_PREPROCESSOR_DEF})
 
 find_program(GDBUSCODEGEN NAMES gdbus-codegen)
 if (NOT GDBUSCODEGEN)
