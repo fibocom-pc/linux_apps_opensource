@@ -103,3 +103,8 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
 - version:1.0.7<br>
   1. modify source code compiling warning<br>
   2. modify all service log format<br>
+
+- version:1.0.8<br>
+  1. optimized config code<br>
+  2. modify log level<br>
+  3. flash service print log without fw_package<br>

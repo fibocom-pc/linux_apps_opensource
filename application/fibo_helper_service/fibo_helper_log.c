@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "fibo_helper_common.h"
 
-int g_debug_level = LOG_DEBUG;
+int g_debug_level = LOG_INFO;
 
 struct option long_options[] = {
         {"version", no_argument, NULL, 'v'},

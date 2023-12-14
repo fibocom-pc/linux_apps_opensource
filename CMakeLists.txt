@@ -23,7 +23,7 @@ cmake_minimum_required(VERSION 3.6)
 # minor = Small design change specific to any operation.
 # macro = small change or bug fix
 
-project(fibocom_linux VERSION 1.0.7)
+project(fibocom_linux VERSION 1.0.8)
 
 add_subdirectory (application)
 
@@ -66,3 +66,12 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Fibocom")
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA 
     "${PROJECT_BINARY_DIR}/../script/preinst;${PROJECT_BINARY_DIR}/../script/prerm;${PROJECT_BINARY_DIR}/../script/postinst;${PROJECT_BINARY_DIR}/../script/postrm")
 include(CPack)
+
+
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+  @ONLY
+)
+
+add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)

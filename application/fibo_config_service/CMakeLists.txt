@@ -37,7 +37,7 @@ add_custom_command(OUTPUT generated/fibocom-helper-gdbus-generated.c
 execute_process(COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fbwwanConfig.ini ${PROJECT_BINARY_DIR})
 set(CONFIG_MAJOR_VERSION 1)
 set(CONFIG_MINOR_VERSION 0)
-set(CONFIG_PATCH_VERSION 2)
+set(CONFIG_PATCH_VERSION 3)
 
 set(CONFIG_VERSION_STRING "${CONFIG_MAJOR_VERSION}.${CONFIG_MINOR_VERSION}.${CONFIG_PATCH_VERSION}")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/version.h.in"

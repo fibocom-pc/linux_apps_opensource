@@ -52,7 +52,7 @@ mdmver_details g_curmdm_versions;
 static GMainLoop *gMainloop = NULL;
 FibocomGdbusHelper *proxy;
 char g_strType[256] = {0};
-int g_debug_level = LOG_DEBUG;
+int g_debug_level = LOG_INFO;
 e_flow_state flash_flow_state = FW_UPDATE_FLOW_UNLOCK;
 
 /*
@@ -2539,6 +2539,16 @@ int main(int argc, char *argv[])
     gMainloop = g_main_loop_new(NULL, FALSE);
 
     new_pkg = check_new_package();
+    if (FALSE == new_pkg)
+    {
+        if (0 != access(FWPACKAGE_PATH, F_OK))
+        {
+            FIBO_LOG_INFO("=================================================================\n");
+            FIBO_LOG_INFO("********Please ensure that fw package has been installed.********\n");
+            FIBO_LOG_INFO("********Obtain the fw package from the corresponding OEM.********\n");
+            FIBO_LOG_INFO("=================================================================\n");
+        }
+    }
 
     for (i = 0; i < 15; i++)
     {

@@ -215,6 +215,13 @@
         }                                                                                                             \
     } while (0);
 
+typedef struct config_function_s{
+    bool is_config;
+    bool(*fun_cfg)(void);
+    char *description;
+
+}config_function_t;
+
 static struct list_head s_ini_list = {};
 static esim_disable_parse_t parse_data = {};
 static region_map_xml_parse_t region_map_data = {};
@@ -1423,32 +1430,45 @@ bool fibo_set_disableesim_for_mcc(void)
     return true;
 }
 
+static config_function_t config_data[] ={
+    {false, fibo_set_fcclock_enable, "fccunlock enable config"},
+    {true, fibo_set_sim_slots_switch, "sim card slot config"},
+    {false, fibo_set_wdisable_enable, "wdisable enable config"},
+    {false, fibo_set_gnss_enable, "gnss enable config"},
+    {false, fibo_set_band_config_enable, "band enable config"},
+    {false, fibo_set_net_type, "net enable config"},
+    {false, fibo_set_bodysar_type, "bodysar enable config"},
+    {false, fibo_set_tasar_type, "tasar enable config"},
+    {false, fibo_set_antenna_type, "antenna enable config"},
+    {false, fibo_set_disableesim_for_sku, "disableesim enable config"}
+};
+
 bool fibo_get_config_and_set(void)
 {
-    int result = 0;
-    /* result += fibo_set_fcclock_enable(); */
-    result += fibo_set_sim_slots_switch();
-    /* result += fibo_set_wdisable_enable();
-    result += fibo_set_gnss_enable();
-    result += fibo_set_band_config_enable();
-    result += fibo_set_net_type();
-    result += fibo_set_bodysar_type();
-    result += fibo_set_tasar_type();
-    result += fibo_set_antenna_type();
-    result += fibo_set_disableesim_for_sku(); */
+    int result = 1;
+    config_function_t *tmp = NULL;
     FIBO_LOG_DEBUG("result = %d", result);
-    /* if (result == 11) */
-    if (result == 2)
+    int config_num = sizeof(config_data)/sizeof(config_function_t);
+    for (int i = 0; i < config_num; i++)
     {
-        FIBO_LOG_DEBUG("set static config successfully!");
-        return true;
+        tmp = &config_data[i];
+        if (tmp->is_config)
+        {
+            bool rst = tmp->fun_cfg();
+            result &= rst;
+            if (rst)
+            {
+                FIBO_LOG_INFO("static config iteam :%s success",tmp->description);
+            }
+            else
+            {
+                FIBO_LOG_ERROR("static config iteam :%s fail",tmp->description);
+            }
+            
+        }
     }
-    else
-    {
-        FIBO_LOG_DEBUG("set static config fail!");
-        return false;
-    }
-}
+    return ((!!result)?true:false);
+} 
 
 bool fibo_static_ini_cfg()
 {
