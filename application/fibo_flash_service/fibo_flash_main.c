@@ -1460,7 +1460,7 @@ void fastbootport_process()
     flag.flag_arry[PORTSTATEFLAG] = FASTBOOT_PORT;
     (void)get_set_reboot_flag(flag);
 
-    FIBO_LOG_NOTICE("[%s]:Now is fastboot port, will >>>---start 3min timer---<<<...[%s-%s]\n", __func__, __DATE__, __TIME__);
+    FIBO_LOG_NOTICE("Now is fastboot port, will >>>---start 3min timer---<<<...\n");
     //add timer 3min
     fast_boot_timer_source = g_timeout_add(3*60*1000,(GSourceFunc)fastboot_reboot_callback, NULL);
 }
@@ -2061,7 +2061,7 @@ void *fibo_recovery_monitor(void *arg)
     {
         flag.flag_arry[PORTSTATEFLAG] = DUMP_PORT;
         (void)get_set_reboot_flag(flag);
-        FIBO_LOG_ERROR("[%s]:Now is dump port, pls collect dump log...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        FIBO_LOG_ERROR("Now is dump port, pls collect dump log...\n");
         ret = true;
     }
     else if(state && *state == FASTBOOT_PORT)
@@ -2069,14 +2069,14 @@ void *fibo_recovery_monitor(void *arg)
         flag.flag_arry[PORTSTATEFLAG] = FASTBOOT_PORT;
         (void)get_set_reboot_flag(flag);
         FIBO_LOG_NOTICE("[%s]:stop fastboot timer %d\n", __func__, stop_fastboot_timer());
-        FIBO_LOG_NOTICE("[%s]:Now is fastboot port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        FIBO_LOG_NOTICE(":Now is fastboot port, will start 3min timer...\n");
         //add timer 3min
         fast_boot_timer_source = g_timeout_add(3*60*1000,(GSourceFunc)fastboot_reboot_callback, NULL);
         ret = true;
     }
     else if(state && *state == UNKNOWN_PORT)
     {
-        FIBO_LOG_NOTICE("[%s]:Now is unknown port, will start 3min timer...[%s-%s]\n", __func__, __DATE__, __TIME__);
+        FIBO_LOG_NOTICE("Now is unknown port, will start 3min timer...\n");
         if(!start_flash_timer(3))
         {
             FIBO_LOG_ERROR("[%s]:start_flash_timer error\n", __func__);
