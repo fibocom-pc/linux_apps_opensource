@@ -45,6 +45,11 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
   sudo systemctl daemon-reload
 - enable service<br>
   sudo systemctl enable fibo_xxx.service<br>
+  **examples:** sudo systemctl enable fibo_helper.service<br>
+&emsp;&emsp;&emsp;&emsp;&emsp;sudo systemctl enable fibo_helper_mbim.service<br>
+&emsp;&emsp;&emsp;&emsp;&emsp;sudo systemctl enable fibo_flash.service<br>
+&emsp;&emsp;&emsp;&emsp;&emsp;sudo systemctl enable fibo_config.service<br>
+**notices:** this step must be done,then systemd can find and start the service<br>
 - start service<br>
 	sudo systemctl start fibo_xxx.service<br>
 - Get status<br>
