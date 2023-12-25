@@ -16,7 +16,7 @@ The fibo_flash fibo_config  fibo_helper binaries are both GPLv2+.<br>
     2. `rm -rf /opt/fibocom/fibo_ma_service/fcc-unlock.d`
     3. `chown -R root:root  /usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d`
     4. `chmod 755 -R /usr/lib/x86_64-linux-gnu/ModemManager/fcc-unlock.d`
-- This application runs only on ubuntu22.04,other ubuntu versions and other OS have not developed and validated.
+- This application runs only on ubuntu22.04,other ubuntu versions and other OS have unverified.
 # Building on Ubuntu
 
 ## 1. Install
