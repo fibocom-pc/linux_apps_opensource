@@ -327,6 +327,14 @@ bool compare_version_need_update(mdmver_details *curmdm_ver, fw_details *fw_ver,
             strcat(str_fw, strAp);
             strncat_s(str_fw, 256, ";", 1);
             ap_need_update = TRUE;
+
+	    if (NULL != fw_ver->fw_ver)
+            {
+                strcat(strMd, fw_ver->fw_ver);
+                strcat(str_fw, strMd);
+                strncat_s(str_fw, 256, ";", 1);
+                md_need_update = TRUE;
+            }
         }
     }
 
@@ -334,10 +342,13 @@ bool compare_version_need_update(mdmver_details *curmdm_ver, fw_details *fw_ver,
     {
         if((NULL == strstr(curmdm_ver->fw_ver, fw_ver->fw_ver)) && (0 != strlen(curmdm_ver->fw_ver)))
         {
-            strcat(strMd, fw_ver->fw_ver);
-            strcat(str_fw, strMd);
-            strncat_s(str_fw, 256, ";", 1);
-            md_need_update = TRUE;
+            if (FALSE == md_need_update)
+            {
+                strcat(strMd, fw_ver->fw_ver);
+                strcat(str_fw, strMd);
+                strncat_s(str_fw, 256, ";", 1);
+                md_need_update = TRUE;
+            }
         }
     }
 
