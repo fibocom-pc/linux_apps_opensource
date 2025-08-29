@@ -2592,87 +2592,616 @@ void fibo_program_payload_analysis(char * payload,Payload_Analysis *payload_anal
     }
 }
 
-int fibocom_get_zenity_environment_variable(char zenity_environment_variable[],int length)
-{
-    FILE *get_zenity_environment_variable_fp = NULL;
-    FILE *get_zenity_environment_variable_x11_fp = NULL;
-    char get_zenity_environment_variable_cmd[] = "find /run/user -name \".mutter-Xwaylandauth*\" 2>/dev/null | head -1";
-    char get_zenity_environment_variable_x11_cmd[] = "find /run/user/ -name \"Xauthority\" 2>/dev/null | head -1";
-    int ret = 0;
+void fibocom_remove_last_newline(char *str) {
+    int len = strlen(str);
+    int last_newline = len - 1;
+    while (last_newline >= 0 && (str[last_newline] == '\n' || str[last_newline] == '\r')) {
+        last_newline--;
+    }
+    str[last_newline + 1] = '\0';
+}
 
-    get_zenity_environment_variable_fp = popen(get_zenity_environment_variable_cmd,"r");
-    if(NULL == get_zenity_environment_variable_fp){
-        perror("get_zenity_environment_variable error");
-        FIBO_LOG_ERROR("open zenity_environment_variable error\n");
+static int
+init_env_for_wayland(Progress *progress, int uid, char *username)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+
+    char environment_string[]                      = "export XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XDG_RUNTIME_DIR=";
+    char fedora_environment_string[]               = "export XDG_CURRENT_DESKTOP=\"GNOME\"\nexport XDG_RUNTIME_DIR=";
+    char environment_temp[64]                      = {0};
+    char get_display_env_result[128]               = {0};
+
+    if (progress == NULL) {
+        FIBO_LOG_ERROR("NULL pointer!\n");
         return RET_ERROR;
     }
 
-    ret = fread(zenity_environment_variable,sizeof(char),length,get_zenity_environment_variable_fp);
-    if(!ret){
-        FIBO_LOG_ERROR("read zenity_environment_variable error\n");
-        pclose(get_zenity_environment_variable_fp);
+    if (uid < 1000) {
+        FIBO_LOG_ERROR("Invalid uid:%d!\n", uid);
+        return RET_ERROR;
+    }
 
-        get_zenity_environment_variable_x11_fp = popen(get_zenity_environment_variable_x11_cmd,"r");
-        if(NULL == get_zenity_environment_variable_x11_fp){
-            perror("get_zenity_environment_variable_x11 error");
-            FIBO_LOG_ERROR("open get_zenity_environment_variable_x11 error\n");
+    // step1: get active user's XDG_RUNTIME_DIR variable.
+    snprintf(environment_temp, 64, "/run/user/%d/\n", uid);
+    FIBO_LOG_DEBUG("XDG_RUNTIME_DIR value:%s", environment_temp);
+    strncpy(progress->environmentVariable, environment_string, strlen(environment_string));
+    strncat(progress->environmentVariable, environment_temp, 64);
+
+    // step2: set corresponding WAYLAND_DISPLAY variables.
+    // on test machine, all two login user's WAYLAND_DISPLAY are all "wayland-0".
+    snprintf(get_display_env_result, 128, "export WAYLAND_DISPLAY=\"wayland-0\"\n");
+    strncat(progress->environmentVariable, get_display_env_result, 35);
+
+    return RET_OK;
+}
+
+static int
+init_env_for_x11(Progress *progress, int uid, char *username)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+
+    int  ret                                       = RET_ERROR;
+    char environment_temp[64]                      = {0};
+    char environment_string[]                      = "export XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XAUTHORITY=";
+    char fedora_environment_string[]               = "export XDG_CURRENT_DESKTOP=\"GNOME\"\nexport XAUTHORITY=";
+    FILE *fp                                       = NULL;
+    char command[128]                              = {0};
+    char pid_str[32]                               = {0};
+    int  pid                                       = RET_ERROR;
+    char path[128]                                 = {0};
+    char *buffer                                   = NULL;
+    int  len                                       = 0;
+    char *start                                    = NULL;
+    char valid_display_value[16]                   = {0};
+    char get_display_env_result[128]               = {0};
+
+    if (progress == NULL) {
+        FIBO_LOG_ERROR("NULL pointer!\n");
+        return RET_ERROR;
+    }
+
+    if (uid < 1000 || username == NULL || strlen(username) < 1) {
+        FIBO_LOG_ERROR("Invalid param!\n");
+        return RET_ERROR;
+    }
+
+    // step1: get current user's xauthority variable.
+    // fedora don't contain the gdm folder on run/user/uid path.
+    snprintf(environment_temp, 64, "find /run/user/%d/gdm/ -name Xauthority 2>/dev/null\n", uid);
+    fp = popen(environment_temp, RDONLY);
+    if (fp == NULL) {
+        FIBO_LOG_ERROR("open fp failed!\n");
+        return RET_ERROR;
+    }
+
+    memset(environment_temp, 0, 64);
+    while (fgets(environment_temp, sizeof(environment_temp), fp) != NULL) {
+        FIBO_LOG_DEBUG("Xauthority value:%s\n", environment_temp);
+    }
+    pclose(fp);
+
+    // add logic to check whether xauthority is existed.
+    if (strlen(environment_temp) > 1) {
+        FIBO_LOG_DEBUG("Xauthority file existed!\n");
+        memset(environment_temp, 0, 64);
+        snprintf(environment_temp, 64, "/run/user/%d/gdm/Xauthority\n", uid);
+    }
+    else {
+        FIBO_LOG_DEBUG("Xauthority file not existed, will try to find specific file instead!\n");
+        // if not, we should find and use specific name instead.
+        memset(environment_temp, 0, 64);
+        snprintf(environment_temp, 64, "find /run/user/%d/ -name *Xwayland* 2>/dev/null", uid);
+        fp = popen(environment_temp, RDONLY);
+        if (fp == NULL) {
+            FIBO_LOG_ERROR("open fp failed!\n");
             return RET_ERROR;
         }
-        ret = fread(zenity_environment_variable,sizeof(char),length,get_zenity_environment_variable_x11_fp);
-        if(!ret){
-            FIBO_LOG_ERROR("read zenity_environment_variable_x11 error\n");
-            pclose(get_zenity_environment_variable_x11_fp);
-            return RET_ERROR;
+
+        memset(environment_temp, 0, 64);
+        while (fgets(environment_temp, sizeof(environment_temp), fp) != NULL) {
+            FIBO_LOG_DEBUG("Specific Xauthority value:%s\n", environment_temp);
         }
-        pclose(get_zenity_environment_variable_x11_fp);
-    }else{
-        pclose(get_zenity_environment_variable_fp);
+        pclose(fp);
+    }
+
+    strncpy(progress->environmentVariable, environment_string, strlen(environment_string));
+    strncat(progress->environmentVariable, environment_temp, 64);
+
+    // step2: try to get DISPLAY value from active user's screensaver thread.
+    // only X11 support xhost and DISPLAY variable by default.
+    snprintf(command, sizeof(command), "ps -ef | grep '[o]rg.gnome.ScreenSaver' | awk '$1 == \"%s\" {print $2}'", username);
+    fp = popen(command, RDONLY);
+    if (fp == NULL) {
+        FIBO_LOG_ERROR("open fp failed!\n");
+        return RET_ERROR;
+    }
+
+    while (fgets(pid_str, sizeof(pid_str), fp) != NULL) {
+        pid = atoi(pid_str);
+        FIBO_LOG_DEBUG("find pid: %d\n", pid);
+    }
+    pclose(fp);
+
+    if (pid == RET_ERROR) {
+        FIBO_LOG_ERROR("can't find pid!\n");
+        return RET_ERROR;
+    }
+
+    snprintf(path, sizeof(path), "/proc/%d/environ", pid);
+
+    fp = fopen(path, "r");
+    if (fp == NULL) {
+        FIBO_LOG_ERROR("open /proc/%d/environ failed!\n", pid);
+        return RET_ERROR;
+    }
+
+    buffer = malloc(4 * 1024 * sizeof(char));
+    if (buffer == NULL) {
+        FIBO_LOG_ERROR("malloc space failed!\n");
+        return RET_ERROR;
+    }
+    memset(buffer, 0, 4 * 1024 * sizeof(char));
+
+    len = fread(buffer, 1, 4 * 1024 * sizeof(char), fp);
+    fclose(fp);
+
+    // all environs will be divided with "\0", aka we can't get value directly by strstr or strlen!
+    if (len == 0) {
+        FIBO_LOG_ERROR("read /proc/%d/environ failed!\n", pid);
+        free(buffer);
+        buffer = NULL;
+        return RET_ERROR;
+    }
+
+    start = buffer;
+    while (start < buffer + len) {
+        // FIBO_LOG_DEBUG("current env:%s\n", start);
+        if (strncmp(start, "DISPLAY=", 8) == 0) {
+            strncpy(valid_display_value, (start + 8), strlen(start + 8));
+            break;
+        }
+        start += strlen(start) + 1;
+    }
+
+    if (strlen(valid_display_value) < 1) {
+        FIBO_LOG_ERROR("Can't find DISPLAY value!\n");
+        free(buffer);
+        buffer = NULL;
+        return RET_ERROR;
+    }
+
+    FIBO_LOG_DEBUG("DISPLAY: %s\n", valid_display_value);
+    free(buffer);
+    buffer = NULL;
+
+    snprintf(get_display_env_result, 128, "\n export DISPLAY=\"%s\"\n", valid_display_value);
+    strncat(progress->environmentVariable, get_display_env_result, 128);
+    return RET_OK;
+}
+
+static int
+find_active_user_id(int *uid, char *username, int *windowing_system)
+{
+    FILE *fd                       = NULL;
+    char get_login_session_id[]    = "loginctl list-sessions --no-legend | awk '{print $1}'";
+    char resp[16]                  = {0};
+    int  session_id                = RET_ERROR;
+    int  num_sessions              = 0;
+    int  sessions[10]              = {0};  // we consider that there is no way that 10 user logined at same time!
+    char get_active_session_id[64] = {0};
+    int  ret                       = RET_ERROR;
+    int  valid_session_id          = 0;
+
+    if (uid == NULL) {
+        FIBO_LOG_ERROR("NULL pointer!\n");
+        return RET_ERROR;
+    }
+    *uid = 0;
+
+    fd = popen(get_login_session_id, RDONLY);
+    if (NULL == fd) {
+        FIBO_LOG_ERROR("open fd error\n");
+        return RET_ERROR;
+    }
+    while (fgets(resp, sizeof(resp), fd) != NULL) {
+        session_id = atoi(resp);
+        if (session_id > 0 && num_sessions < 10) {
+            sessions[num_sessions++] = session_id;
+        }
+    }
+    pclose(fd);
+
+    if (num_sessions < 1) {
+        FIBO_LOG_ERROR("No user logined! will use default value!\n");
+        *uid = 1000;
+    } else {
+        for (int i = 0; i < num_sessions; i++) {
+            snprintf(get_active_session_id, 64, "loginctl show-session %d -p State --value", sessions[i]);
+            fd = popen(get_active_session_id, RDONLY);
+            if (NULL == fd) {
+                FIBO_LOG_ERROR("open fd error\n");
+                return RET_ERROR;
+            }
+
+            ret = fread(resp, sizeof(char), sizeof(resp), fd);
+            pclose(fd);
+            if (!ret || strlen(resp) < 1 || strstr(resp, "active") == NULL) {
+                // FIBO_LOG_DEBUG("No active user, continue to find!\n");
+                continue;
+            } else {
+                valid_session_id = sessions[i];
+            }
+
+            snprintf(get_active_session_id, 64, "loginctl show-session %d -p User --value", valid_session_id);
+            fd = popen(get_active_session_id, RDONLY);
+            if (NULL == fd) {
+                FIBO_LOG_ERROR("open fd error\n");
+                return RET_ERROR;
+            }
+
+            ret = fread(resp, sizeof(char), sizeof(resp), fd);
+            pclose(fd);
+            if (!ret || strlen(resp) < 1) {
+                FIBO_LOG_ERROR("Unpredictiable error! resp data:%s\n", resp);
+                return RET_ERROR;
+            } else {
+                *uid = atoi(resp);
+                FIBO_LOG_DEBUG("Get valid user id:%d\n", *uid);
+                break;
+            }
+        }
+
+        if (*uid == 0) {
+            FIBO_LOG_ERROR("No active user! will use default value!\n");
+            *uid = 1000;
+        }
+
+        // if variable username existed, will try to get username for further use.
+        if (username == NULL) {
+            FIBO_LOG_DEBUG("NULL pointer!\n");
+        } else {
+            snprintf(get_active_session_id, 64, "loginctl show-session %d -p Name --value", valid_session_id);
+            fd = popen(get_active_session_id, RDONLY);
+            if (NULL == fd) {
+                FIBO_LOG_ERROR("open fd error\n");
+                return RET_ERROR;
+            }
+
+            ret = fread(resp, sizeof(char), sizeof(resp), fd);
+            pclose(fd);
+            if (!ret || strlen(resp) < 1) {
+                FIBO_LOG_ERROR("Unpredictiable error! resp data:%s\n", resp);
+                return RET_ERROR;
+            } else {
+                // use strtok to cut and get the first part.
+                strtok(resp, "\n");
+                strncpy(username, resp, strlen(resp));
+                FIBO_LOG_DEBUG("Get valid user name:%s\n", username);
+            }
+        }
+
+        // if variable windowing system existed, will try to get windows system for further use.
+        if (windowing_system == NULL) {
+            FIBO_LOG_DEBUG("NULL pointer!\n");
+        } else {
+            snprintf(get_active_session_id, 64, "loginctl show-session %d -p Type --value", valid_session_id);
+            fd = popen(get_active_session_id, RDONLY);
+            if (NULL == fd) {
+                FIBO_LOG_ERROR("open fd error\n");
+                return RET_ERROR;
+            }
+
+            ret = fread(resp, sizeof(char), sizeof(resp), fd);
+            pclose(fd);
+            if (!ret || strlen(resp) < 1) {
+                FIBO_LOG_ERROR("Unpredictiable error! resp data:%s\n", resp);
+                return RET_ERROR;
+            } else {
+                // strncpy(username, resp, strlen(resp));
+                if (strstr(resp, "wayland") != NULL) {
+                    FIBO_LOG_DEBUG("Get valid windowing system:%s\n", resp);
+                    *windowing_system = 0;
+                } else if (strstr(resp, "X") != NULL) {
+                    FIBO_LOG_DEBUG("Get valid windowing system:%s\n", resp);
+                    *windowing_system = 1;
+                } else {
+                    FIBO_LOG_ERROR("Unknown windowing system:%s, treat it as X11!\n", resp);
+                    *windowing_system = 1;
+                }
+            }
+        }
+    }
+    return RET_OK;
+}
+
+int fibocom_get_zenity_environment_variable(Progress *progress)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+
+    // check current windowing system and execute corresponding env init process.
+    int  ret                       = RET_ERROR;
+    int  uid                       = 0;
+    char username[32]              = {0};
+    int windowing_system           = -1;
+
+    if (progress == NULL) {
+        FIBO_LOG_ERROR("NULL pointer!\n");
+        return RET_ERROR;
+    }
+
+    // step1: get active user's UID!
+    ret = find_active_user_id(&uid, username, &windowing_system);
+    if (ret != RET_OK || uid < 1000 || strlen(username) < 1 || windowing_system < 0) {
+        FIBO_LOG_ERROR("can't get active user information!\n");
+        return RET_ERROR;
+    }
+
+    // x11 will init xorg by default, but wayland won't init xorg by default!
+    // but on fedora OS, there might be a thread called abrt-dump-journal-xorg -fxtD,
+    // so we drop these code and use loginctl instead.
+    if (windowing_system == 0) {
+        FIBO_LOG_DEBUG("Current Windowing system: Wayland!");
+        ret = init_env_for_wayland(progress, uid, username);
+    }
+    else if (windowing_system == 1) {
+        FIBO_LOG_DEBUG("Current Windowing system: X11");
+        ret = init_env_for_x11(progress, uid, username);
+    }
+    else {
+        FIBO_LOG_ERROR("unknown Windowing ststem!\n");
+        return RET_ERROR;
+    }
+
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("can't initialize env for windowing system!\n");
+        return RET_ERROR;
+    }
+
+    // on Fedora OS, there might be error to show the string directly, but variable is correct.
+    FIBO_LOG_DEBUG("progress bar env: \n%s\n", progress->environmentVariable);
+    // for (int i = 0; i < 256; i++) {
+    //    ROLLING_LOG_DEBUG("DEBUG: %d, %c", *((progress->environmentVariable) + i), *((progress->environmentVariable) + i));
+    // }
+    return RET_OK;
+}
+
+int fibocom_start_zenity(Progress *progress)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    // env only work inside popen, aka a sub thread, parent thread won't accept these env.
+    // so if a popen fd is closed, sub thread won't existed, env won't existed as well!
+    snprintf(progress->progressCmd, 1024,
+            "%s /usr/bin/zenity --progress --text=\"%s\" --percentage=%c --auto-close --no-cancel --width=600 --title=\"%s\"",
+            progress->environmentVariable, progress->progressText, progress->progressSchedule[0], progress->progressTitle);
+
+    // on Fedora OS, there might be error to show the string directly, but variable is correct.
+    FIBO_LOG_DEBUG("Progress bar init string:\n%s\n", progress->progressCmd);
+    // for (int i = 0; i < 256; i++) {
+    //     ROLLING_LOG_DEBUG("DEBUG: %d, %c", *((progress->environmentVariable) + i), *((progress->environmentVariable) + i));
+    // }
+
+    progress->progressFd = popen(progress->progressCmd, "w");
+    if(progress->progressFd == NULL)
+        FIBO_LOG_ERROR("fibocom_start_zenity error\n");
+
+    sleep(2);
+    return RET_OK;
+}
+
+int fibocom_set_zenity_title(Progress *progress, const char* title)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    strcpy(progress->progressTitle, title);
+    return RET_OK;
+}
+
+int fibocom_set_zenity_init_text(Progress *progress)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    strcpy(progress->progressText, "<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>Do not shut down or restart</span>");
+    return RET_OK;
+}
+
+int fibocom_set_zenity_text(Progress *progress, const char *text)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    char textTmp[256] = "#";
+    strcat(textTmp, text);
+    fibocom_remove_last_newline(textTmp);
+    strcat(textTmp, "\\n\\n\n");
+    strcpy(progress->progressText, textTmp);
+    return RET_OK;
+}
+
+int fibocom_set_zenity_schedule(Progress *progress, int schedule)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    char scheduleTemp[32] = {0};
+    itoa(schedule, scheduleTemp, 10);
+    strcpy(progress->progressSchedule, scheduleTemp);
+    strcat(progress->progressSchedule, "\n");
+    return RET_OK;
+}
+
+int fibocom_refresh_zenity(Progress *progress, const char *text, int schedule)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    FIBO_LOG_DEBUG("progress->progressText = %s\n", progress->progressText);
+    FIBO_LOG_DEBUG("progress->progressSchedule = %s\n", progress->progressSchedule);
+    if(atoi(progress->progressSchedule) == 99)
+        fwrite(progress->progressText, sizeof(char), strlen(progress->progressText), progress->progressFd);
+    fwrite(progress->progressSchedule, sizeof(char), strlen(progress->progressSchedule), progress->progressFd);
+
+    fflush(progress->progressFd);
+    sleep(1);
+    return RET_OK;
+}
+
+int fibocom_close_zenity(Progress *progress)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    fclose(progress->progressFd);
+    return RET_OK;
+}
+
+Progress *CreateProgressImpl(enum CurrentDistibId hostType)
+{
+    FIBO_LOG_DEBUG("enter!\n");
+    Progress *progressImpl = (Progress *)malloc(sizeof(Progress));
+    if (progressImpl != NULL) {
+        memset(progressImpl, 0, sizeof(Progress));
+        switch (hostType) {
+            case Ubuntu:
+                progressImpl->fibocom_get_progress_environment_variable = fibocom_get_zenity_environment_variable;
+                progressImpl->fibocom_start_progress = fibocom_start_zenity;
+                progressImpl->fibocom_set_progress_title = fibocom_set_zenity_title;
+                progressImpl->fibocom_set_progress_init_text = fibocom_set_zenity_init_text;
+                progressImpl->fibocom_set_progress_text = fibocom_set_zenity_text;
+                progressImpl->fibocom_set_progress_schedule = fibocom_set_zenity_schedule;
+                progressImpl->fibocom_refresh_progress = fibocom_refresh_zenity;
+                progressImpl->fibocom_close_progress = fibocom_close_zenity;
+                break;
+            case None:
+            default:
+                progressImpl->fibocom_get_progress_environment_variable = fibocom_get_zenity_environment_variable;
+                progressImpl->fibocom_start_progress = fibocom_start_zenity;
+                progressImpl->fibocom_set_progress_title = fibocom_set_zenity_title;
+                progressImpl->fibocom_set_progress_init_text = fibocom_set_zenity_init_text;
+                progressImpl->fibocom_set_progress_text = fibocom_set_zenity_text;
+                progressImpl->fibocom_set_progress_schedule = fibocom_set_zenity_schedule;
+                progressImpl->fibocom_refresh_progress = fibocom_refresh_zenity;
+                progressImpl->fibocom_close_progress = fibocom_close_zenity;
+                break;
+        }
+        progressImpl->progressHeight = 120;
+        progressImpl->progressWidth = 600;
+        progressImpl->progressFd = NULL;
+        progressImpl->progressCloseFd = NULL;
+        memset(progressImpl->progressTitle,       0, 64);
+        memset(progressImpl->progressText,        0, 256);
+        memset(progressImpl->progressSchedule,    0, 32);
+        memset(progressImpl->environmentVariable, 0, 256);
+        memset(progressImpl->progressCmd,         0, 1024);
+        memset(progressImpl->progressCloseCmd,    0, 512);
+    }
+    return progressImpl;
+}
+
+void DestroyProgressImpl(Progress *self) {
+    if (self != NULL) {
+        free(self);
+        self = NULL;
+    }
+}
+// end of zenity
+
+int fibocom_get_current_distrib_id(enum CurrentDistibId *hostType)
+{
+    char get_current_distrib_id_cmd[] = "cat /etc/lsb-release | grep DISTRIB_ID | awk -F '=' '{print $2}'";
+    FILE *get_current_distrib_id_fd = NULL;
+    char distrib_id[64] = {0};
+    int ret = 0;
+    get_current_distrib_id_fd = popen(get_current_distrib_id_cmd, "r");
+    if(get_current_distrib_id_fd == NULL)
+        FIBO_LOG_ERROR("get_current_distrib_id_fd error");
+
+    ret = fread(distrib_id, sizeof(char), 64, get_current_distrib_id_fd);
+    if(ret == RET_ERROR){
+        FIBO_LOG_ERROR("fread get_distrib_id error\n");
+            *hostType = Ubuntu;
+        fclose(get_current_distrib_id_fd);
+        return RET_OK;
+    }
+    fclose(get_current_distrib_id_fd);
+
+    if(strstr(distrib_id, "Ubuntu")) {
+        *hostType = Ubuntu;
+    } else if(strstr(distrib_id, "ThinPro")) {
+        *hostType = Thinpro;
+    } else {
+        //非空并且其他字段默认设置为Ubuntu
+        *hostType = Ubuntu;
     }
 
     return RET_OK;
 }
 
-void fibocom_strcat_zenity_environment_variable(char zenity_environment_variable[],char set_zenity_environment_variable[])
+static gint
+execute_burn_command(char *command, int *fastboot_success_flag)
 {
-    sprintf(set_zenity_environment_variable,"export DISPLAY=\":0\"\nexport XDG_CURRENT_DESKTOP=\"ubuntu:GNOME\"\nexport XAUTHORITY=%s\n",zenity_environment_variable);
+    FILE *fp      = NULL;
+    char buf[256] = {0};
+    int  ret      = RET_ERROR;
+
+    if (command == NULL || fastboot_success_flag == NULL) {
+        FIBO_LOG_ERROR("Invalid input param!\n");
+        return RET_ERROR;
+    }
+
+    fp = popen(command, "r");
+    if (fp == NULL) {
+        FIBO_LOG_ERROR("execute command error!\n");
+        return RET_ERROR;
+    }
+
+    memset(buf,0,sizeof(buf));
+
+    ret = fread(buf, sizeof(char), sizeof(buf), fp);
+    if (ret < 0) {
+        memcpy(buf, "fread error", strlen("fread error") + 1);
+        FIBO_LOG_ERROR("read resp data error!\n");
+        ret = RET_ERROR;
+    } else if (strstr(buf, "Finished. Total time:") != NULL){
+        *fastboot_success_flag += 1;
+        ret = RET_OK;
+    } else {
+        if ((strstr(buf, "partition size: 0") != NULL) && (strstr(buf, "Warning: skip copying") != NULL)) {
+            FIBO_LOG_DEBUG("seems module refuse to load the image, not host problem!\n");
+            *fastboot_success_flag += 1;
+            ret = RET_OK;
+        } else {
+            FIBO_LOG_ERROR("unexpected buffer:%s\n", buf);
+            ret = RET_ERROR;
+        }
+    }
+
+    pclose(fp);
+
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("flash error!\n");
+        return RET_ERROR;
+    }
+    return RET_OK;
 }
 
 gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_flag) {
-    Sub_Partition_Len sub_partition_len = {0};
-    FILE *fp = NULL;
-    int ret = 0;
-
-    char command_rsp[256] = {0};
-    char command[256] = {0};
-    char buf[256] = {0};
-    File_Progress_Class fastboot_flash = {0};
+    Sub_Partition_Len    sub_partition_len    = {0};
+    int                  ret                  = 0;
+    char                 command[256]         = {0};
     Partition_Flash_Flag partition_flash_flag = {0};
-    Payload_Analysis payload_analysis = {0};
+    Payload_Analysis     payload_analysis     = {0};
+    int                  default_dev_flag     = 0;
+    enum CurrentDistibId hostType             = 0;
 
-    char zenity_environment_variable[64] = {0};
-    int environment_variable_length = 64;
-    char set_zenity_environment_variable[256] = {0};
-    int default_dev_flag = 0;
+    // memset(&fastboot_flash, 0, sizeof(File_Progress_Class));
+    payload_analysis.ap_ver = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.modem_ver = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.dev_ver = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.dev_ver_path = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.oem_ver = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.oem_ver_path = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.op_ver = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.op_ver_path = (char *)malloc(sizeof(char) * 64);
+    payload_analysis.flashpath = (char *)malloc(sizeof(char) * 256);
 
-    memset(&fastboot_flash, 0 ,sizeof(File_Progress_Class));
-    payload_analysis.ap_ver = (char*)malloc(sizeof(char)*64);
-    payload_analysis.modem_ver = (char*)malloc(sizeof(char)*64);
-    payload_analysis.dev_ver = (char*)malloc(sizeof(char)*64);
-    payload_analysis.dev_ver_path = (char*)malloc(sizeof(char)*64);
-    payload_analysis.oem_ver = (char*)malloc(sizeof(char)*64);
-    payload_analysis.oem_ver_path = (char*)malloc(sizeof(char)*64);
-    payload_analysis.op_ver = (char*)malloc(sizeof(char)*64);
-    payload_analysis.op_ver_path = (char*)malloc(sizeof(char)*64);
-    payload_analysis.flashpath = (char*)malloc(sizeof(char)*256);
-
-    memset(payload_analysis.ap_ver, 0, sizeof(char)*64);
-    memset(payload_analysis.modem_ver, 0, sizeof(char)*64);
-    memset(payload_analysis.dev_ver, 0, sizeof(char)*64);
-    memset(payload_analysis.dev_ver_path, 0, sizeof(char)*64);
-    memset(payload_analysis.oem_ver, 0, sizeof(char)*64);
-    memset(payload_analysis.oem_ver_path, 0, sizeof(char)*64);
-    memset(payload_analysis.op_ver_path, 0, sizeof(char)*64);
-    memset(payload_analysis.flashpath, 0, sizeof(char)*256);
+    memset(payload_analysis.ap_ver, 0, sizeof(char) * 64);
+    memset(payload_analysis.modem_ver, 0, sizeof(char) * 64);
+    memset(payload_analysis.dev_ver, 0, sizeof(char) * 64);
+    memset(payload_analysis.dev_ver_path, 0, sizeof(char) * 64);
+    memset(payload_analysis.oem_ver, 0, sizeof(char) * 64);
+    memset(payload_analysis.oem_ver_path, 0, sizeof(char) * 64);
+    memset(payload_analysis.op_ver_path, 0, sizeof(char) * 64);
+    memset(payload_analysis.flashpath, 0, sizeof(char) * 256);
 
     char *flashpath_bak = payload_analysis.flashpath;
     char *ap_ver_bak = payload_analysis.ap_ver;
@@ -2684,512 +3213,275 @@ gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_
     char *op_ver_bak = payload_analysis.op_ver;
     char *op_ver_path_bak = payload_analysis.op_ver_path;
 
-    fibo_program_payload_analysis(payload,&payload_analysis,&partition_flash_flag,&default_dev_flag);
+    fibo_program_payload_analysis(payload, &payload_analysis, &partition_flash_flag, &default_dev_flag);
 
     sub_partition_len.ap = sizeof(ap_partition) / sizeof(fibocom_partition);
     sub_partition_len.sbl = sizeof(sbl_partition) / sizeof(fibocom_partition);
     sub_partition_len.modem = sizeof(modem_partition) / sizeof(fibocom_partition);
     sub_partition_len.dev = sizeof(dev_partition) / sizeof(fibocom_partition);
     sub_partition_len.oem = sizeof(oem_partition) / sizeof(fibocom_partition);
-    sub_partition_len.op = sizeof(op_partition) /sizeof(fibocom_partition);
+    sub_partition_len.op = sizeof(op_partition) / sizeof(fibocom_partition);
 
-    ret = fibocom_get_zenity_environment_variable(zenity_environment_variable,environment_variable_length);
-    if(ret != RET_OK){
-        FIBO_LOG_ERROR("get zenity_environment_variable path error\n");
-        /*If the progress bar envronment variable fails to be read,the burn proceduce is still executed
+    fibocom_get_current_distrib_id(&hostType);
+    FIBO_LOG_DEBUG("fibo_get_current_distrib_id = %d\n", hostType);
+
+    Progress *ProgressImpl = CreateProgressImpl(hostType);
+    if (ProgressImpl == NULL) {
+        FIBO_LOG_ERROR("Malloc space failed!\n");
+        if (flashpath_bak != NULL) {
+            free(flashpath_bak);
+            flashpath_bak = NULL;
+        }
+
+        if (ap_ver_bak != NULL) {
+            free(ap_ver_bak);
+            ap_ver_bak = NULL;
+        }
+
+        if (modem_ver_bak != NULL) {
+            free(modem_ver_bak);
+            modem_ver_bak = NULL;
+        }
+
+        if (dev_ver_bak != NULL) {
+            free(dev_ver_bak);
+            dev_ver_bak = NULL;
+        }
+
+        if (dev_ver_path_bak != NULL) {
+            free(dev_ver_path_bak);
+            dev_ver_path_bak = NULL;
+        }
+
+        if (oem_ver_bak != NULL) {
+            free(oem_ver_bak);
+            oem_ver_bak = NULL;
+        }
+
+        if (oem_ver_path_bak != NULL) {
+            free(oem_ver_path_bak);
+            oem_ver_path_bak = NULL;
+        }
+
+        if (op_ver_bak != NULL) {
+            free(op_ver_bak);
+            op_ver_bak = NULL;
+        }
+
+        if (op_ver_path_bak != NULL) {
+            free(op_ver_path_bak);
+            op_ver_path_bak = NULL;
+        }
         return NULL;
-        */
     }
-    fibocom_strcat_zenity_environment_variable(zenity_environment_variable,set_zenity_environment_variable);
 
-    FIBO_LOG_DEBUG("%s\n",set_zenity_environment_variable);
-
-    fastboot_flash.progress_fp = NULL;
-    strcpy(fastboot_flash.progress_title,"ModemUpgrade");
-    strcpy(fastboot_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>Do not shut down or restart</span>");
-    sprintf(fastboot_flash.progress_command,
-            "%s/usr/bin/zenity --progress --text=\"%s\" --percentage=%d --auto-close --no-cancel --width=600 --title=\"%s\"",
-            set_zenity_environment_variable,fastboot_flash.progress_text, 10,fastboot_flash.progress_title);
-
-    fastboot_flash.progress_fp = popen(fastboot_flash.progress_command,"w");
-    g_usleep(1000*1000*2);
+    ProgressImpl->fibocom_get_progress_environment_variable(ProgressImpl);
+    ProgressImpl->fibocom_set_progress_title(ProgressImpl, "ModemUpgrade");
+    ProgressImpl->fibocom_set_progress_init_text(ProgressImpl);
+    ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, 1);
+    ProgressImpl->fibocom_start_progress(ProgressImpl);
 
     int flash_partition_num = 0;
-
-    if(partition_flash_flag.ap!= 0)
+    if (partition_flash_flag.ap != 0)
         flash_partition_num += 5;
-    if(partition_flash_flag.modem!= 0)
+    if (partition_flash_flag.modem != 0)
         flash_partition_num += 1;
-    if(partition_flash_flag.dev!= 0)
+    if (partition_flash_flag.dev != 0)
         flash_partition_num += 1;
-    if(partition_flash_flag.oem!= 0)
+    if (partition_flash_flag.oem != 0)
         flash_partition_num += 1;
-    if(partition_flash_flag.op!= 0)
+    if (partition_flash_flag.op != 0)
         flash_partition_num += 1;
 
+    FIBO_LOG_DEBUG("flash_partition_num = %d\n", flash_partition_num);
     int flash_partition_percent = 99 / flash_partition_num;
     int present_flash_partition_percent = 0;
 
-    if(partition_flash_flag.ap != 0) {
-        for (int i = 0; i < sub_partition_len.ap; i++) {
+    // AP image download.
+    if (partition_flash_flag.ap != 0)
+    {
+        for (int i = 0; i < sub_partition_len.ap; i++)
+        {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage,"\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", ap_partition[i].lable, payload_analysis.flashpath, payload_analysis.ap_ver, ap_partition[i].filename);
+            FIBO_LOG_DEBUG("AP command = %s", command);
 
-            FIBO_LOG_DEBUG("payload_analysis->flashpath = %s %d\n",payload_analysis.flashpath,__LINE__);
-            FIBO_LOG_DEBUG("payload_analysis->ap_ver = %s %d\n",payload_analysis.ap_ver,__LINE__);
-
-            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", ap_partition[i].lable, payload_analysis.flashpath, payload_analysis.ap_ver,
-            ap_partition[i].filename);
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-
-            fp = popen(command, "r");
-            if (fp == NULL) {
-                FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-                continue;
-            }
-
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", ap_partition[i].lable);
-            }
-
-            ret = pclose(fp);
+            ret = execute_burn_command(command, fastboot_success_flag);
             if (ret != RET_OK) {
-                FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-                continue;
+                FIBO_LOG_ERROR("flash error %s\n", ap_partition[i].lable);
             }
 
-            FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
-            fflush(fastboot_flash.progress_fp);
-            g_usleep(1000*1000*1);
+            ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
         }
 
         if(ap_ver_bak) {
             free(ap_ver_bak);
+            ap_ver_bak = NULL;
         }
     }
 
-    if(partition_flash_flag.ap != 0) {
+    // SBL image download.
+    if (partition_flash_flag.ap != 0) {
         for (int i = 0; i < sub_partition_len.sbl; i++) {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage, "\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
-            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", sbl_partition[i].lable, payload_analysis.flashpath, "basic_update_img",
-                    sbl_partition[i].filename);
+            sprintf(command, "fastboot flash %s %s%s/%s 2>&1", sbl_partition[i].lable, payload_analysis.flashpath, "basic_update_img", sbl_partition[i].filename);
 
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
+            FIBO_LOG_DEBUG("SBL command = %s", command);
 
-            fp = popen(command, "r");
-            if (fp == NULL) {
-                FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-                continue;
-            }
-
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", sbl_partition[i].lable);
-            }
-
-            ret = pclose(fp);
+            ret = execute_burn_command(command, fastboot_success_flag);
             if (ret != RET_OK) {
-                FIBO_LOG_DEBUG("%s command return error! %d\n", __func__, __LINE__);
-                FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-                continue;
+                FIBO_LOG_ERROR("flash error %s\n", sbl_partition[i].lable);
             }
 
-            FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
-            fflush(fastboot_flash.progress_fp);
-            g_usleep(1000*1000*1);
+            ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
         }
     }
 
-    if(partition_flash_flag.modem != 0){
-        for (int i = 0; i < sub_partition_len.modem; i++){
+    // MODEM image download.
+    if (partition_flash_flag.modem != 0) {
+        for (int i = 0; i < sub_partition_len.modem; i++) {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage, "\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
-            fflush(fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
             sprintf(command, "fastboot flash %s %s%s/%s 2>&1", modem_partition[i].lable, payload_analysis.flashpath, payload_analysis.modem_ver, modem_partition[i].filename);
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-            fp = popen(command, "r");
-            if (fp == NULL){
-                FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-                continue;
+            FIBO_LOG_DEBUG("MODEM command = %s\n", command);
+
+            ret = execute_burn_command(command, fastboot_success_flag);
+            if (ret != RET_OK) {
+                FIBO_LOG_ERROR("flash error %s\n", modem_partition[i].lable);
             }
 
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", modem_partition[i].lable);
-            }
-
-            ret = pclose(fp);
-            if (ret != RET_OK){
-                FIBO_LOG_DEBUG("%s command return error! %d\n", __func__,__LINE__);
-                continue;
-            }
-            fflush(fastboot_flash.progress_fp);
-            g_usleep(1000*1000*1);
-            if(modem_ver_bak) {
-                free(modem_ver_bak);
-            }
+            ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
         }
-
-        FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
+        if (modem_ver_bak) {
+            free(modem_ver_bak);
+            modem_ver_bak = NULL;
+        }
     }
 
-    if(partition_flash_flag.dev != 0){
-        for (int i = 0; i < sub_partition_len.dev; i++){
+    // DEV image download.
+    if (partition_flash_flag.dev != 0) {
+        for (int i = 0; i < sub_partition_len.dev; i++) {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage, "\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
-            fflush(fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
-
-            if(1 == default_dev_flag){
+            if (1 == default_dev_flag) {
                 sprintf(command, "fastboot flash %s %s%s/%s 2>&1", dev_partition[i].lable, payload_analysis.flashpath, payload_analysis.dev_ver_path, dev_partition[i].filename);
-            }
-            else{
+            } else {
                 sprintf(command, "fastboot flash %s %sDEV_OTA_PACKAGE/%s/%s 2>&1", dev_partition[i].lable, payload_analysis.flashpath, payload_analysis.dev_ver_path, dev_partition[i].filename);
             }
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
+            FIBO_LOG_DEBUG("DEV command = %s %d\n", command, __LINE__);
 
-            fp = popen(command, "r");
-            if (fp == NULL)
-            {
-                FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-                continue;
-            }
-
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", dev_partition[i].lable);
-            }
-
-            ret = pclose(fp);
-            if (ret != RET_OK){
-                FIBO_LOG_DEBUG("%s command return error! %d\n", __func__,__LINE__);
-                continue;
+            ret = execute_burn_command(command, fastboot_success_flag);
+            if (ret != RET_OK) {
+                FIBO_LOG_ERROR("flash error %s\n", dev_partition[i].lable);
             }
         }
-        FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
-        fflush(fastboot_flash.progress_fp);
-        g_usleep(1000*1000*1);
-        if(dev_ver_bak) {
+
+        ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
+        if (dev_ver_bak) {
             free(dev_ver_bak);
+            dev_ver_bak = NULL;
         }
-        if(dev_ver_path_bak) {
+        if (dev_ver_path_bak) {
             free(dev_ver_path_bak);
+            dev_ver_path_bak = NULL;
         }
     }
 
-    if(partition_flash_flag.oem != 0){
-        for (int i = 0; i < sub_partition_len.oem; i++){
+    // OEM image download.
+    if (partition_flash_flag.oem != 0) {
+        for (int i = 0; i < sub_partition_len.oem; i++) {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage, "\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
-            fflush(fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
             sprintf(command, "fastboot flash %s %s%s/%s 2>&1", oem_partition[i].lable, payload_analysis.flashpath, payload_analysis.oem_ver_path, oem_partition[i].filename);
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-            fp = popen(command, "r");
-            if (fp == NULL){
-                FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-                continue;
+            FIBO_LOG_DEBUG("OEM command = %s\n", command);
+
+            ret = execute_burn_command(command, fastboot_success_flag);
+            if (ret != RET_OK) {
+                FIBO_LOG_ERROR("flash error %s\n", oem_partition[i].lable);
             }
 
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", oem_partition[i].lable);
-            }
-
-            ret = pclose(fp);
-            if (ret != RET_OK){
-                FIBO_LOG_DEBUG("%s command return error! %d\n", __func__,__LINE__);
-                continue;
-            }
+            ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
         }
-        FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
-        g_usleep(1000*1000*1);
-        if(oem_ver_bak) {
+
+        if (oem_ver_bak) {
             free(oem_ver_bak);
+            oem_ver_bak = NULL;
         }
         if(oem_ver_path_bak) {
             free(oem_ver_path_bak);
+            oem_ver_path_bak = NULL;
         }
     }
 
-    if(partition_flash_flag.op != 0){
-        for (int i = 0; i < sub_partition_len.op; i++){
+    // OP image download.
+    if (partition_flash_flag.op != 0) {
+        for (int i = 0; i < sub_partition_len.op; i++) {
             present_flash_partition_percent += flash_partition_percent;
-            itoa(present_flash_partition_percent, fastboot_flash.progress_percentage, 10);
-            sprintf(fastboot_flash.progress_percentage, "%s", fastboot_flash.progress_percentage);
-            strcat(fastboot_flash.progress_percentage, "\n");
-            fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
-            fflush(fastboot_flash.progress_fp);
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, present_flash_partition_percent);
 
-            fp = NULL;
             sprintf(command, "fastboot flash %s %s%s/%s 2>&1", op_partition[i].lable, payload_analysis.flashpath, payload_analysis.op_ver_path, op_partition[i].filename);
-            FIBO_LOG_DEBUG("command = %s %d\n", command, __LINE__);
-            fp = popen(command, "r");
-            if (fp == NULL){
-                FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-                continue;
-            }
+            FIBO_LOG_DEBUG("OP command = %s\n", command);
 
-            memset(buf,0,sizeof(buf));
-
-            ret = fread(buf, sizeof(char), sizeof(buf), fp);
-            if(ret == RET_ERROR){
-                memcpy(buf,"fread error", strlen("fread error") + 1);
-                FIBO_LOG_CRITICAL("fread fp error\n");
-            }
-
-            if(strstr(buf, "Finished. Total time:") != NULL){
-                *fastboot_success_flag += 1;
-            }
-            else{
-                FIBO_LOG_CRITICAL("flash error %s\n", op_partition[i].lable);
-            }
-
-            ret = pclose(fp);
-            if (ret != RET_OK){
-                FIBO_LOG_DEBUG("%s command return error! %d\n", __func__,__LINE__);
-                continue;
+            ret = execute_burn_command(command, fastboot_success_flag);
+            if (ret != RET_OK) {
+                FIBO_LOG_ERROR("flash error %s\n", op_partition[i].lable);
             }
         }
-        FIBO_LOG_DEBUG("fastboot_flash.progress_command = %s %d\n", fastboot_flash.progress_command, __LINE__);
-        fflush(fastboot_flash.progress_fp);
-        g_usleep(1000*1000*1);
-        if(op_ver_bak) {
+
+        ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", present_flash_partition_percent);
+        if (op_ver_bak) {
             free(op_ver_bak);
+            op_ver_bak = NULL;
         }
-        if(op_ver_path_bak) {
+        if (op_ver_path_bak) {
             free(op_ver_path_bak);
+            op_ver_path_bak = NULL;
         }
     }
 
-    if(flashpath_bak) {
+    if (flashpath_bak) {
         free(flashpath_bak);
+        flashpath_bak = NULL;
     }
 
     fibo_fastboot_reboot();
 
-    if(*fastboot_success_flag == flash_partition_num){
+    if (*fastboot_success_flag == flash_partition_num) {
         *fastboot_success_flag = 1;
-        strcpy(fastboot_flash.progress_text, "#The Modem upgrade Success!\\n\\n\n");
-    }else{
+        ProgressImpl->fibocom_set_progress_text(ProgressImpl, "The Modem upgrade Success!\n");
+    } else {
         *fastboot_success_flag = 0;
-        strcpy(fastboot_flash.progress_text, "#The Modem upgrade failed!\\n\\n\n");
+        ProgressImpl->fibocom_set_progress_text(ProgressImpl, "The Modem upgrade failed!\n");
     }
 
-    sprintf(fastboot_flash.progress_percentage, "%s\n", "99");
-    fwrite(fastboot_flash.progress_text, sizeof(char), strlen(fastboot_flash.progress_text), fastboot_flash.progress_fp);
-    fwrite(fastboot_flash.progress_percentage, sizeof(char), strlen(fastboot_flash.progress_percentage), fastboot_flash.progress_fp);
-    fflush(fastboot_flash.progress_fp);
-    g_usleep(1000*1000*3);
+    ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, 99);
+    ProgressImpl->fibocom_refresh_progress(ProgressImpl, "<p style=\\\"font-size: 15px\\\">Configuring mobile broadband device</p><p style=\\\"font-size: 15px;color: red;\\\">Do not shut down or restart ThinPro</p>", 99);
+    g_usleep(1000 * 1000 * 3);
 
-    ret = pclose(fastboot_flash.progress_fp);
-    if (ret != RET_OK) {
-        FIBO_LOG_DEBUG("%s command return error! %d\n", __func__, __LINE__);
-    }
+    ProgressImpl->fibocom_close_progress(ProgressImpl);
+    DestroyProgressImpl(ProgressImpl);
 
     return NULL;
 }
 
-int qdl_payload_analysis(char *payload, char *qdl_apver, char*qdl_mdver)
+static int
+fibo_helperm_fm101_qdl_rmdir(const char *path)
 {
-    char interpayload[128] = {0};
-    char *p = NULL;
+    char command[128] = {0};
+    int  ret          = 0;
 
-    if(NULL == payload){
-        FIBO_LOG_CRITICAL("payload == NULL\n");
-        return RET_ERROR;
-    }
-    sprintf(interpayload,"%s",payload);
-
-    p = strtok(interpayload,";");
-
-    while(p){
-        if(strstr(p, "ap")){
-            strcpy(qdl_apver, p);
-        }
-        else if(strstr(p, "md")){
-            strcpy(qdl_mdver, p);
-        }
-        p = strtok(NULL, ";");
-    }
-
-    if(qdl_apver) {
-        p = strtok(qdl_apver, ":");
-        strcpy(qdl_apver, strtok(NULL, ";"));
-    } else{
-        FIBO_LOG_CRITICAL("qdl_apver == NULL\n");
-        return RET_ERROR;
-    }
-
-    if(qdl_mdver) {
-        p = strtok(qdl_mdver, ":");
-        strcpy(qdl_mdver, strtok(NULL, ";"));
-    } else{
-        FIBO_LOG_CRITICAL("qdl_mdver == NULL\n");
-        return RET_ERROR;
-    }
-    return RET_OK;
-}
-
-int copy_image(char *qdl_falash_path, char *qdl_appath, char *qdl_mdpath, char *qdl_work_space)
-{
-    char qdl_copy_apimage_cmd[128] = {0};
-    char qdl_copy_mdimage_cmd[128] = {0};
-    char qdl_copy_basicimage_cmd[128] = {0};
-    char qdl_copy_downagent_cmd[128] = {0};
-    char qdl_copy_rawprogram_nand_cmd[128] = {0};
-    int ret = 0;
-
-    sprintf(qdl_copy_apimage_cmd,"cp %s/* %s", qdl_appath, qdl_work_space);
-    sprintf(qdl_copy_mdimage_cmd,"cp %s/* %s", qdl_mdpath, qdl_work_space);
-    sprintf(qdl_copy_basicimage_cmd,"cp %s%s/* %s", qdl_falash_path, "basic_update_img", qdl_work_space);
-    sprintf(qdl_copy_downagent_cmd,"cp %s%s/* %s", qdl_falash_path, "download_agent", qdl_work_space);
-    sprintf(qdl_copy_rawprogram_nand_cmd,"cp %s%s %s", qdl_falash_path, "rawprogram_nand_p2K_b128K.xml", qdl_work_space);
-    ret = system(qdl_copy_apimage_cmd);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("copy ap image error\n");
-        return RET_ERROR;
-    }
-
-    FIBO_LOG_CRITICAL("%s\n",qdl_copy_mdimage_cmd);
-    ret = system(qdl_copy_mdimage_cmd);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("copy md image error\n");
-        return RET_ERROR;
-    }
-
-    FIBO_LOG_CRITICAL("%s\n",qdl_copy_basicimage_cmd);
-
-    ret = system(qdl_copy_basicimage_cmd);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("copy basic image error\n");
-        return RET_ERROR;
-    }
-
-    ret = system(qdl_copy_downagent_cmd);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("copy downagent error\n");
-        return RET_ERROR;
-    }
-
-    ret = system(qdl_copy_rawprogram_nand_cmd);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("copy rawprogram_nand_p2K_b128K.xml error\n");
-        return RET_ERROR;
-    }
-
-    return RET_OK;
-}
-
-int qdl_rmdir(const char *path)
-{
-    char rm_dir[128] = {0};
-    int ret = 0;
-    sprintf(rm_dir,"rm -rf %s",path);
-    ret = system(rm_dir);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("rmdir %s error\n",path);
-        return RET_ERROR;
-    }
-    return  RET_OK;
-}
-
-int fibocom_creat_qdl_work_space(char *qdl_falash_path, char *qdl_work_space, char *qdl_apver, char *qdl_mdver)
-{
-    char find_rawprogram_nand_cmd[128] = {0};
-    size_t ret = 0;
-    char qdl_apimage_path[128] = {0};
-    char qdl_mdimage_path[128] = {0};
-
-    ret = mkdir(qdl_work_space,666 | O_CREAT | O_TRUNC);
-    if(RET_ERROR == ret){
-        FIBO_LOG_CRITICAL("mkdir error\n");
-        return RET_ERROR;
-    }
-
-    sprintf(qdl_apimage_path,"%s%s",qdl_falash_path,qdl_apver);
-    sprintf(qdl_mdimage_path,"%s%s",qdl_falash_path,qdl_mdver);
-
-    ret = copy_image(qdl_falash_path, qdl_apimage_path, qdl_mdimage_path, qdl_work_space);
-    if(RET_OK !=ret){
-        FIBO_LOG_CRITICAL("copy_image error\n");
-        FIBO_LOG_CRITICAL("%s\n",qdl_work_space);
-        qdl_rmdir(qdl_work_space);
+    FIBO_LOG_DEBUG("enter!\n");
+    snprintf(command, 128, "rm -rf %s", path);
+    ret = system(command);
+    if (RET_OK != ret) {
+        FIBO_LOG_ERROR("rmdir %s error\n",path);
         return RET_ERROR;
     }
     return RET_OK;
@@ -3238,161 +3530,138 @@ int find_segment_from_xml(char* segment,char *docname, int *filename_num)
     return RET_OK;
 }
 
-gpointer fibocom_qdl_flash_command(gpointer payload,int *qdl_success_flag)
+gpointer
+fibocom_qdl_flash_command(gpointer payload, int *qdl_success_flag)
 {
-    char *qdl_falash_path = "/opt/fibocom/fibo_fw_pkg/FwPackage/";
-    char qdl_work_space[128] = {0};
     char prog_nand_firehose_path[256] = {0};
-    char rawprogram_nand_path[256] = {0};
-    char patch_p2K_path[256] = {0};
-    char qdl_flash_cmd[1024 + 512] = {0};
-    FILE *qdl_fp = NULL;
-    char qdl_apver[8] = {0};
-    char qdl_mdver[32] = {0};
+    char rawprogram_nand_path[256]    = {0};
+    char patch_p2K_path[256]          = {0};
+    char *qdl_flash_cmd               = NULL;
+    enum CurrentDistibId hostType     = 0;
+    FILE *qdl_fp                      = NULL;
+    int  current_percentage           = 0;
+    int  count                        = 128;
+    char buf[1024]                    = {0};
+    int  i                            = 0;
+    int ret                           = 0;
+    int image_num                     = 0;
+    int per_partition_percent         = 0;
 
-    File_Progress_Class qdl_flash = {0};
-    int qdl_flash_progress_current_percentage = 0;
-    int count = 128;
-    char buf[1024]= {0};
-    int i = 0;
+    FIBO_LOG_DEBUG("enter!\n");
 
-    int ret = 0;
-    char zenity_environment_variable[64] = {0};
-    int environment_variable_length = 64;
-    char set_zenity_environment_variable[256] = {0};
-
-    int image_num = 0;
-    int qdl_flash_partition_percent = 0;
-
-
-    ret = qdl_payload_analysis(payload,qdl_apver,qdl_mdver);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("qdl_payload_analysis error\n");
-        *qdl_success_flag = 0;
+    qdl_flash_cmd = malloc(2048);
+    if (qdl_flash_cmd == NULL) {
+        FIBO_LOG_ERROR("malloc space failed!\n");
         return NULL;
     }
-    if(payload){
-        free(payload);
-    }
+    memset(qdl_flash_cmd, 0, 2048);
 
-    sprintf(qdl_work_space,"%sMaincode/", qdl_falash_path);
+    snprintf(prog_nand_firehose_path, 256,
+             "%sprog_nand_firehose_9x55.mbn", RECOVERY_PKG_PATH);
+    snprintf(rawprogram_nand_path,    256,
+             "%srawprogram_nand_p2K_b128K.xml", RECOVERY_PKG_PATH);
+    snprintf(patch_p2K_path,          256,
+             "%spatch_p2K_b128K.xml", RECOVERY_PKG_PATH);
+    // keep qdl binary on /opt... path.
+    snprintf(qdl_flash_cmd,           2048,
+             "/opt/fibocom/fibo_helper_service/fibo_helper_tools/qdl"
+             " --storage nand --include %s %s %s %s 2>&1",
+             RECOVERY_PKG_PATH, prog_nand_firehose_path,
+             rawprogram_nand_path, patch_p2K_path);
 
-    if(0 == access(qdl_work_space, F_OK)) {
-        FIBO_LOG_WARNING("Directory exists.\n");
-        qdl_rmdir(qdl_work_space);
-    } else {
-        FIBO_LOG_INFO("Directory does not exist.\n");
-    }
+    fibocom_get_current_distrib_id((enum CurrentDistibId *)&hostType);
 
-    ret = fibocom_creat_qdl_work_space(qdl_falash_path, qdl_work_space, qdl_apver, qdl_mdver);
-    if(RET_OK != ret){
-        FIBO_LOG_CRITICAL("fibocom_creat_qdl_work_space error\n");
+    Progress *ProgressImpl = CreateProgressImpl(hostType);
+    ProgressImpl->fibocom_get_progress_environment_variable(ProgressImpl);
+    ProgressImpl->fibocom_set_progress_title(ProgressImpl, "ModemUpgrade");
+    ProgressImpl->fibocom_set_progress_init_text(ProgressImpl);
+    ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, 1);
+    ProgressImpl->fibocom_start_progress(ProgressImpl);
+
+    qdl_fp = popen(qdl_flash_cmd, "r");
+    if (qdl_fp == NULL) {
+        FIBO_LOG_ERROR("send command failed!\n");
+        fibo_helperm_fm101_qdl_rmdir(RECOVERY_PKG_PATH);
         *qdl_success_flag = 0;
+        FIBO_LOG_DEBUG("execute command failed!\n");
         return NULL;
     }
 
-    sprintf(prog_nand_firehose_path,"%sprog_nand_firehose_9x55.mbn",qdl_work_space);
-    sprintf(rawprogram_nand_path,"%srawprogram_nand_p2K_b128K.xml",qdl_work_space);
-    sprintf(patch_p2K_path,"%spatch_p2K_b128K.xml",qdl_work_space);
-    sprintf(qdl_flash_cmd,"/opt/fibocom/fibo_helper_service/fibo_helper_tools/qdl --storage nand --include %s %s %s %s 2>&1",qdl_work_space,prog_nand_firehose_path,rawprogram_nand_path,patch_p2K_path);
+    FIBO_LOG_CRITICAL("qdl_flash_cmd run success.\n");
 
+    // just test code to confirm whether previous code has error.
     ret = find_segment_from_xml("filename", rawprogram_nand_path, &image_num);
     if(RET_ERROR == ret){
         FIBO_LOG_ERROR("find segment from xml error\n");
         return NULL;
     }
-    FIBO_LOG_DEBUG("%d\n",image_num);
+    FIBO_LOG_DEBUG("Total image num:%d\n", image_num);
 
     if(image_num != 0) {
-        qdl_flash_partition_percent = 99 / image_num;
+        per_partition_percent = 99 / image_num;
     }
 
-    ret = fibocom_get_zenity_environment_variable(zenity_environment_variable,environment_variable_length);
-    if(ret != RET_OK){
-        FIBO_LOG_ERROR("get zenity_environment_variable path error\n");
-        /*If the progress bar envronment variable fails to be read,the burn proceduce is still executed
-        return NULL;
-        */
-    }
-    fibocom_strcat_zenity_environment_variable(zenity_environment_variable,set_zenity_environment_variable);
-    FIBO_LOG_DEBUG("%s %d\n",qdl_flash_cmd,__LINE__);
-
-    strcpy(qdl_flash.progress_title,"ModemUpgrade");
-    strcpy(qdl_flash.progress_text,"<span font='13'>Downloading ...\\n\\n</span><span foreground='red' font='16'>Do not shut down or restart</span>");
-    sprintf(qdl_flash.progress_command,
-            "%s/usr/bin/zenity --progress --text=\"%s\" --percentage=%d --auto-close --no-cancel --width=600 --title=\"%s\"",
-            set_zenity_environment_variable,qdl_flash.progress_text, qdl_flash.progress_percentage[0] ,qdl_flash.progress_title);
-
-    usleep(1000*1000*1);
-    qdl_flash.progress_fp = popen(qdl_flash.progress_command,"w");
-    if (qdl_flash.progress_fp == NULL) {
-        FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-    }
-
-    qdl_fp = popen(qdl_flash_cmd,"r");
-    if (qdl_fp == NULL) {
-        FIBO_LOG_CRITICAL("%s\n",qdl_work_space);
-        qdl_rmdir(qdl_work_space);
-        *qdl_success_flag = 0;
-        FIBO_LOG_DEBUG("[%s]: execute command failed!\n", __func__);
-        return NULL;
-    }
-
-    FIBO_LOG_CRITICAL("qdl_flash_cmd run success\n");
-
-    while(fgets(buf,count,qdl_fp)!=NULL){
+    while (fgets(buf, count, qdl_fp) != NULL)
+    {
         FIBO_LOG_CRITICAL("read from qdl_fp == %s\n", buf);
-        if(strstr(buf,"Waiting for EDL device") != NULL){
-            strcpy(qdl_flash.progress_text,"#don't match 9008 port,exit program\n");
-            fwrite(qdl_flash.progress_text, sizeof(char), strlen(qdl_flash.progress_text), qdl_flash.progress_fp);
-            fflush(qdl_flash.progress_fp);
-            g_usleep(1000*1000*1);
+        if (strstr(buf, "Waiting for EDL device") != NULL)
+        {
+            // 9008 port missing, return error.
             pclose(qdl_fp);
             *qdl_success_flag = 0;
-            FIBO_LOG_CRITICAL("%s\n",qdl_work_space);
-            ret = qdl_rmdir(qdl_work_space);
+            FIBO_LOG_ERROR("9008 port missing!\n");
+            ret = fibo_helperm_fm101_qdl_rmdir(RECOVERY_PKG_PATH);
             return NULL;
         }
 
-        if(strstr(buf,"successfully") != NULL) {
+        if (strstr(buf, "successfully") != NULL)
+        {
             i++;
-            qdl_flash_progress_current_percentage += qdl_flash_partition_percent;
-            itoa(qdl_flash_progress_current_percentage, qdl_flash.progress_percentage, 10);
-            sprintf(qdl_flash.progress_percentage, "%s", qdl_flash.progress_percentage);
-            strcat(qdl_flash.progress_percentage, "\n");
-            fwrite(qdl_flash.progress_percentage, sizeof(char), strlen(qdl_flash.progress_percentage),
-                   qdl_flash.progress_fp);
-            FIBO_LOG_DEBUG("buf =====  %s    progress_percentage === %s\n", buf, qdl_flash.progress_percentage);
-            fflush(qdl_flash.progress_fp);
-            g_usleep(1000 * 1000 * 1);
+            current_percentage += per_partition_percent;
+            ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, current_percentage);
+            // only Thinpro OS will use the param "text" at 99 percent,
+            // but if current percentage is 99, that means all file download successfully.
+            // below code only deal with mid-download logic.
+            if (current_percentage != 99) {
+                ProgressImpl->fibocom_refresh_progress(ProgressImpl, "NULL", current_percentage);
+            }
         }
     }
 
-    if(image_num == i ){
-        FIBO_LOG_CRITICAL("qdl flash success\n");
-        strcpy(qdl_flash.progress_text,"#The Modem upgrade Success!\\n\\n\n");
+    if (image_num == i)
+    {
+        FIBO_LOG_CRITICAL("qdl flash success!\n");
+        ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, 99);
+        ProgressImpl->fibocom_set_progress_text(ProgressImpl, "The Modem upgrade Success!\n");
+        ProgressImpl->fibocom_refresh_progress(ProgressImpl, "The Modem upgrade Success!\n", 99);
         *qdl_success_flag = 1;
-    }else{
-        FIBO_LOG_CRITICAL("qdl flash fail\n");
-        strcpy(qdl_flash.progress_text,"#The Modem upgrade failed!\\n\\n\n");
+    }
+    else
+    {
+        FIBO_LOG_CRITICAL("qdl flash fail!\n");
+        ProgressImpl->fibocom_set_progress_schedule(ProgressImpl, 99);
+        ProgressImpl->fibocom_set_progress_text(ProgressImpl, "The Modem upgrade failed!\n");
+        ProgressImpl->fibocom_refresh_progress(ProgressImpl, "The Modem upgrade failed!\n", 99);
         *qdl_success_flag = 0;
     }
 
-    fwrite(qdl_flash.progress_text, sizeof(char), strlen(qdl_flash.progress_text), qdl_flash.progress_fp);
-    fflush(qdl_flash.progress_fp);
+    sleep(3);
 
-    g_usleep(1000*1000*3);
-
-    FIBO_LOG_CRITICAL("%s\n",qdl_work_space);
-    ret = qdl_rmdir(qdl_work_space);
-    if(RET_OK != ret){
+    ret = fibo_helperm_fm101_qdl_rmdir(RECOVERY_PKG_PATH);
+    if (RET_OK != ret)
+    {
         FIBO_LOG_CRITICAL("close qdl work space fail\n");
-    }else{
+    }
+    else
+    {
         FIBO_LOG_CRITICAL("close qdl work space sueecss\n");
     }
 
     pclose(qdl_fp);
-    pclose(qdl_flash.progress_fp);
+    ProgressImpl->fibocom_close_progress(ProgressImpl);
+    DestroyProgressImpl(ProgressImpl);
+
+    // qdl will reboot module automatically.
     return NULL;
 }
 
