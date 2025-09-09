@@ -13,6 +13,11 @@ if [[ -f ${flash_srv_path} ]]; then
     rm -rf ${flash_srv_path}
 fi
 
+imei_file_path="/opt/fibocom/fibo_config_service/imei"
+if [[ -f ${imei_file_path} ]]; then
+    rm -f ${imei_file_path}
+fi
+
 if [[ -d ${fcc_lock_path} ]]; then
     rm -rf ${fcc_lock_path}
 fi 

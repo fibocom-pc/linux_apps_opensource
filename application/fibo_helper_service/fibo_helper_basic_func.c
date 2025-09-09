@@ -95,6 +95,8 @@ fibocom_request_table_type supported_request_table[] = {
     {GET_NETWORK_MCCMNC,                   fibo_parse_mbim_request,        fibo_helperm_get_network_mccmnc_ready,                ""},
     {GET_SIM_SLOTS_STATUS,                 fibo_parse_mbim_request,        fibo_helperm_get_work_slot_id_ready,                  ""},
     {SET_SIM_SLOTS,                        fibo_parse_mbim_request,        fibo_helperm_get_work_slot_id_ready,                  ""},
+    {DELETE_TEST_PROFILE,                  fibo_delete_test_profile,               NULL,                                                 ""},
+    {GET_EID,                              fibo_parse_send_set_atcmd,              fibo_parse_send_atcmd_ready,                       "AT+EID"},
     /* config service list is not finished. */
 
     {ENUM_CID_MAX,                         fibo_resp_error_result,         NULL,                                                 ""}
@@ -1968,6 +1970,36 @@ int fibo_parse_send_atcmd_ready (MbimDevice   *device,
 }
 
 int
+fibo_parse_send_req_atcmd_with_userdata(fibo_async_struct_type *user_data,
+                          gpointer callback,
+                          char *req_cmd)
+{
+    gint                   ret        = RET_ERROR;
+
+    if (user_data == NULL) {
+        FIBO_LOG_ERROR("NULL pointer!\n");
+        return RET_ERROR;
+    }
+
+    if (user_data->serviceid > ENUM_MAX || (user_data->payloadlen != 0 && user_data->payload_str[user_data->payloadlen] != '\0')  || !callback) {
+        FIBO_LOG_ERROR("Illegal param, %d, %d!\n", user_data->payloadlen, (user_data->payload_str == NULL));
+        user_data = NULL;
+        return RET_ERROR;
+    }
+
+    ret = fibo_adapter_send_message_async(req_cmd, strlen(req_cmd), DEFAULT_TIMEOUT, (GAsyncReadyCallback)callback, user_data);
+
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("Send request failed, error:%d\n", ret);
+        user_data = NULL;
+        return RET_ERROR;
+    }
+
+    FIBO_LOG_DEBUG("Send request finished\n");
+    return RET_OK;
+}
+
+int
 fibo_parse_send_req_atcmd(gint     serviceid,
                           gint     cid,
                           gint     rtcode,
@@ -3802,3 +3834,489 @@ int fibocom_fastboot_flash_ready (MbimDevice   *device,
 
 /*--------------------------------------Above are External Funcs-------------------------------------------------------*/
 
+static fibo_ret_enum_type fibo_delete_profile_delete_profile_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+
+    FIBO_LOG_INFO("Enter fibo_delete_profile_delete_profile_ready");
+    
+    profile_obj * profiles = ((fibo_async_struct_type *)userdata)->data;
+
+    if (profiles == NULL) {
+        FIBO_LOG_ERROR("profiles is NULL");
+        free(userdata);
+        return RET_ERROR;
+    }
+
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("delete profile failed, status = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+    } else {
+        profiles->profile_top--;
+        FIBO_LOG_INFO("Profile deleted successfully, proceeding to next profile if any");
+    }
+    return profiles->func(userdata, profiles);
+}
+
+static bool fibo_delete_profile_delete_profile(fibo_async_struct_type *userdata, profile_obj *profiles) {
+    // 7. remove the test profile
+
+    char status = 0;
+    profile_status *profile = profiles->profiles + profiles->profile_top - 1;
+    char *remove_profile_ = "AT+CSIM=42,\"81E291000FBF330C5A0A%s00\"";
+    char remove_profile[128] = {0};
+    sprintf(remove_profile, remove_profile_, profile->profile_id);
+    FIBO_LOG_INFO("Removing profile with ICCID: %s", profile->profile_id);
+    FIBO_LOG_DEBUG("Remove profile AT command: %s", remove_profile);
+    userdata->data = profiles; // for next step                                    
+    status = fibo_parse_send_req_atcmd_with_userdata(userdata, fibo_delete_profile_delete_profile_ready,
+                                    remove_profile);
+    if (RET_OK != status)
+    {
+        FIBO_LOG_ERROR("Failed to remove profile with ICCID: %s", profile->profile_id);
+        return profiles->func(userdata, profiles);
+    }
+    FIBO_LOG_INFO("Removed profile with ICCID: %s", profile->profile_id);
+    return true;
+}
+
+static fibo_ret_enum_type fibo_delete_profile_disable_profile_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+    FIBO_LOG_INFO("Enter fibo_delete_profile_disable_profile_ready");
+    profile_obj * profiles = ((fibo_async_struct_type *)userdata)->data;
+
+    if (profiles == NULL) {
+        FIBO_LOG_ERROR("profiles is NULL");
+        free(userdata);
+        return RET_ERROR;
+    }
+
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("disable profile failed, status = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+        profiles->func(userdata, profiles);
+        return RET_ERROR;
+    }
+
+    FIBO_LOG_INFO("Profile disabled successfully, proceeding to delete profile");
+    fibo_delete_profile_delete_profile(userdata, profiles); // free(user_data) in fibo_delete_profile_delete_profile
+    return RET_OK;
+}
+
+static fibo_ret_enum_type fibo_delete_profile_close_channel_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+    FIBO_LOG_DEBUG("called, userdata: %p", userdata);
+    profile_obj * profiles = ((fibo_async_struct_type *)userdata)->data;
+    FIBO_LOG_DEBUG("called, profiles: %p", profiles);
+    ((fibo_async_struct_type *)userdata)->data = NULL;
+
+    if (profiles == NULL) {
+        FIBO_LOG_ERROR("profiles is NULL");
+        free(userdata);
+        return RET_ERROR;
+    }
+
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("close channel failed, status = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+    }
+    fibo_async_struct_type *user_data = userdata;
+    int ret = RET_OK;
+    if (profiles->ret == 0) {
+        FIBO_LOG_INFO("All profiles processed successfully, sending OK response to helperd");
+        ret = alloc_and_send_resp_structure(user_data->serviceid, user_data->cid, profiles->ret, 1, "0");
+    } else {
+        FIBO_LOG_ERROR("Some profiles failed to process, sending ERROR response to helperd");
+        ret = alloc_and_send_resp_structure(user_data->serviceid, user_data->cid, profiles->ret, 1, "1");
+    }
+    free(userdata);
+    free(profiles);
+    if (ret != RET_OK) {
+        FIBO_LOG_ERROR("Failed to send response to helperd, ret = %d", ret);
+    } else {
+        FIBO_LOG_INFO("Sent response to helperd successfully");
+    }
+
+    FIBO_LOG_DEBUG("succeeded");
+
+    return RET_OK;
+}
+
+static bool fibo_delete_profile_close_channel(fibo_async_struct_type *userdata, profile_obj *profiles) {
+    fibo_ret_enum_type status = 0;
+    char *close_channel = "AT+CSIM=10,\"0070800100\"";
+
+    // Close Channel
+
+    FIBO_LOG_DEBUG("Close Channel begin userdata: %p, profiles: %p", userdata, profiles);
+    userdata->data = profiles; // for next step
+    status = fibo_parse_send_req_atcmd_with_userdata(userdata, fibo_delete_profile_close_channel_ready,
+                                close_channel);
+
+    FIBO_LOG_DEBUG("Close Channel end, status = %d", status);
+
+    if (RET_OK != status)
+    {
+        FIBO_LOG_ERROR("setting error");
+        free(userdata);
+        return false;
+    } else {
+        userdata = NULL; // prevent double free
+    }
+    return true;
+}
+
+static bool fibo_delete_profile(fibo_async_struct_type *userdata, profile_obj *profiles) {
+    char status = 0;
+    if (profiles == NULL || profiles->profile_top <= 0) {
+        FIBO_LOG_DEBUG("No more profiles to process or invalid profiles data");
+        FIBO_LOG_DEBUG("userdata: %p, profiles: %p", userdata, profiles);
+        fibo_delete_profile_close_channel(userdata, profiles);
+        return true; // Finished processing all profiles
+    }
+    profile_status *profile = profiles->profiles + profiles->profile_top - 1;
+    FIBO_LOG_INFO("Deleting profile with ICCID: %s", profile->profile_id);
+    if (profile == NULL || profile->profile_id[0] == '\0') {
+        FIBO_LOG_ERROR("Invalid profile data");
+        return false;
+    }
+
+    if (profile->type != TEST_PROFILE) {
+        FIBO_LOG_INFO("Profile type is not TEST_PROFILE, skipping deletion");
+        goto RECURSION;
+    }
+
+    FIBO_LOG_INFO("Profile type is TEST_PROFILE, proceeding with deletion");
+    if (profile->retry_times < 2) {
+        // 6. disable the test profile
+
+        profile->retry_times++;
+
+        if (profile->status) {
+            FIBO_LOG_INFO("Profile is active, disabling it first");
+            char *disable_profile_ = "AT+CSIM=52,\"81E2910014BF3211A00C5A0A%s8101FF00\"";
+            char disable_profile[128] = {0};
+            sprintf(disable_profile, disable_profile_, profile->profile_id);
+            userdata->data = profiles; // for next step
+            status = fibo_parse_send_req_atcmd_with_userdata(userdata, fibo_delete_profile_disable_profile_ready,
+                                        disable_profile);
+            if (RET_OK != status)
+            {
+                FIBO_LOG_ERROR("setting error");
+                profiles->func(userdata, profiles);
+                userdata = NULL;
+            } else {
+                FIBO_LOG_DEBUG("Disabled profile with ICCID: %s", profile->profile_id);
+                userdata = NULL; // prevent double free
+            }
+            goto FIBO_DELETE_PROFILE_END;
+        }
+
+        FIBO_LOG_INFO("Profile is inactive, proceeding to delete it directly");
+
+        fibo_delete_profile_delete_profile(userdata, profiles);
+        userdata = NULL; // prevent double free
+        goto FIBO_DELETE_PROFILE_END;
+
+    } else {
+        profiles->ret = -1;
+        FIBO_LOG_ERROR("Failed to delete profile with ICCID: %s after 2 retries", profile->profile_id);
+        goto RECURSION;
+    }
+
+FIBO_DELETE_PROFILE_END:
+    if (userdata) {
+        free(userdata);
+        userdata = NULL;
+    }
+    return true;
+
+RECURSION:
+    FIBO_LOG_DEBUG("Recursing to next profile");
+    profiles->profile_top--;
+    return profiles->func(userdata, profiles);
+}
+
+static fibo_ret_enum_type fibo_delete_profile_get_profile_and_foreach_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+    fibo_async_struct_type* user_data = userdata;
+    profile_obj *profiles = ((fibo_async_struct_type *)userdata)->data;
+    if (profiles == NULL) {
+        FIBO_LOG_INFO("Allocating memory for profiles");
+        profiles = (profile_obj *)malloc(sizeof(profile_obj));
+        memset(profiles, 0, sizeof(profile_obj));
+        user_data->data = profiles;
+    }
+
+    char *CSIM_again_pattern = "+CSIM: 4,\"61";
+
+    FIBO_LOG_DEBUG("Enter fibo_delete_profile_get_profile_and_foreach_ready, userdata: %p, profiles: %p", userdata, profiles);
+    FIBO_LOG_INFO("Received profile list response: %s", user_data->payload_str);
+    FIBO_LOG_INFO("Parsing profile list response, %s", CSIM_again_pattern);
+    if (strstr(user_data->payload_str, CSIM_again_pattern) != NULL) {
+        char *atcmd_ = "AT+CSIM=10,\"01C00000%s\"";
+        char atcmd[128] = {0};
+        char le_hex[3] = {0};
+        char *le_str = strstr(user_data->payload_str, CSIM_again_pattern) + strlen(CSIM_again_pattern);
+        strncpy(le_hex, le_str, 2);
+        sprintf(atcmd, atcmd_, le_hex);
+        FIBO_LOG_DEBUG("More data available, sending AT command: %s", atcmd);
+        int status = fibo_parse_send_req_atcmd_with_userdata(user_data,
+            fibo_delete_profile_get_profile_and_foreach_ready, atcmd); // free(userdata)
+        if (RET_OK != status) {
+            FIBO_LOG_ERROR("Failed to send AT command for more data, status = %d", status);
+            fibo_delete_profile_close_channel(user_data, profiles); // free(userdata) in fibo_delete_profile_close_channel
+            return RET_ERROR;
+        } else {
+            userdata = NULL; // prevent double free
+        }
+
+        return RET_OK;
+    }
+
+    char ICCID_pattern[] = "5A0A";
+    char status_pattern[] = "9F7001";
+    char type_pattern[] = "9501";
+    bool iccid_matched = false, status_matched = false, type_matched = false;
+    int payload_len = strlen(user_data->payload_str);
+    char *rsp_data = user_data->payload_str;
+    FIBO_LOG_DEBUG("rsp_data = %s, payload_len = %d",
+                               rsp_data, payload_len);
+
+    profiles->func = fibo_delete_profile; 
+    for (int i = 0; i < payload_len;) {
+        if (i + strlen(ICCID_pattern) + ICCID_LENGTH < payload_len &&
+            strncmp(rsp_data + i, ICCID_pattern, strlen(ICCID_pattern)) == 0) {
+            i += strlen(ICCID_pattern);
+            strncpy(profiles->profiles[profiles->profile_top].profile_id, rsp_data + i, ICCID_LENGTH);
+            profiles->profiles[profiles->profile_top].profile_id[ICCID_LENGTH] = '\0';
+            i += ICCID_LENGTH;
+            iccid_matched = true;
+            FIBO_LOG_DEBUG("Found ICCID: %s", profiles->profiles[profiles->profile_top].profile_id);
+        } else if (i + strlen(status_pattern) + 2 < payload_len &&
+                   strncmp(rsp_data + i, status_pattern, strlen(status_pattern)) == 0) {
+            i += strlen(status_pattern);
+            profiles->profiles[profiles->profile_top].status = (rsp_data[i + 1] == '1');
+            i += 2;
+            status_matched = true;
+            FIBO_LOG_DEBUG("Found status: %d", profiles->profiles[profiles->profile_top].status);
+        } else if (i + strlen(type_pattern) + 2 < payload_len &&
+                   strncmp(rsp_data + i, type_pattern, strlen(type_pattern)) == 0) {
+            i += strlen(type_pattern);
+            profiles->profiles[profiles->profile_top].type = (rsp_data[i + 1] == '0') ? TEST_PROFILE : NORMAL;
+            i += 2;
+            type_matched = true;
+            FIBO_LOG_DEBUG("Found type: %d", profiles->profiles[profiles->profile_top].type);
+        } else {
+            i++;
+        }
+        if (iccid_matched && status_matched && type_matched) {
+            profiles->profiles[profiles->profile_top].retry_times = 0;
+            FIBO_LOG_DEBUG("Found profile: ICCID=%s, Status=%d, Type=%d",
+                profiles->profiles[profiles->profile_top].profile_id, profiles->profiles[profiles->profile_top].status, profiles->profiles[profiles->profile_top].type);
+            iccid_matched = false;
+            status_matched = false;
+            type_matched = false;
+            profiles->profile_top++;
+        }
+    }
+
+    if (profiles->profile_top == 0) {
+        FIBO_LOG_INFO("No profiles found to delete");
+    } else {
+        FIBO_LOG_INFO("Total profiles found: %d", profiles->profile_top);
+    }
+    FIBO_LOG_DEBUG("userdata: %p, profiles: %p", userdata, profiles);
+    profiles->func(userdata, profiles);
+
+    return RET_OK;
+}
+
+static bool fibo_delete_profile_get_profile_and_foreach(fibo_async_struct_type *userdata) {
+    char status = 0;
+    int payload_lenth = 1024*1024;
+    int *payload = NULL;
+    bool ret = true;
+
+    FIBO_LOG_DEBUG("Getting profile list...");
+
+    char *query_profile_list = "AT+CSIM=18,\"81E2910003BF2D0000\"";
+    status = fibo_parse_send_req_atcmd_with_userdata(userdata,
+        fibo_delete_profile_get_profile_and_foreach_ready, query_profile_list); // free(userdata)
+    if (RET_OK != status) {
+        FIBO_LOG_ERROR("Failed to query profile list, status = %d", status);
+        fibo_delete_profile_close_channel(userdata, (profile_obj *)userdata->data); // free(userdata) in fibo_delete_profile_close_channel
+        userdata = NULL;
+        return false;
+    } else {
+        userdata = NULL; // prevent double free
+    }
+    FIBO_LOG_DEBUG("Query profile list sent successfully");
+    return ret;
+}
+
+static fibo_ret_enum_type fibo_delete_profile_select_icd_r_app_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+    FIBO_LOG_DEBUG("fibo_delete_profile_select_icd_r_app_ready called");
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("select icd r app failed, status = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+        fibo_delete_profile_close_channel(userdata, (profile_obj *)((fibo_async_struct_type *)userdata)->data); // free(userdata)
+        return RET_ERROR;
+    }
+
+    FIBO_LOG_DEBUG("select icd r app succeeded");
+
+    // 3. Query the profile list and try delete it
+
+    FIBO_LOG_DEBUG("Querying profile list...");
+
+    if (!fibo_delete_profile_get_profile_and_foreach(userdata)) { // free(userdata)
+        FIBO_LOG_ERROR("get profile list failed");
+        return RET_ERROR;
+    }
+    userdata = NULL;
+
+    return RET_OK;
+}
+
+static bool fibo_delete_profile_select_icd_r_app(fibo_async_struct_type *userdata) {
+    fibo_ret_enum_type status;
+    char *select_isdr = "AT+CSIM=42,\"01A4040010A0000005591010FFFFFFFF8900000100\"";
+
+    FIBO_LOG_DEBUG("Selecting ISD-R app...");
+
+    // SET_STATIC_CONFIG(SET_CSIM, select_isdr, strlen(select_isdr), status);
+    status = fibo_parse_send_req_atcmd_with_userdata(userdata, fibo_delete_profile_select_icd_r_app_ready,
+                                        select_isdr); // free(userdata)
+    userdata = NULL;
+
+    if (RET_OK != status)
+    {
+        FIBO_LOG_ERROR("setting error");
+        fibo_delete_profile_close_channel(userdata, (profile_obj *)userdata->data); // free(userdata) in fibo_delete_profile_close_channel
+        userdata = NULL;
+        return false;
+    } else {
+        userdata = NULL; // prevent double free
+    }
+    return true;
+}
+
+
+static fibo_ret_enum_type fibo_delete_profile_open_channel_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+
+    FIBO_LOG_DEBUG("Open channel AT command called");
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("fibo_delete_profile_open_channel_ready failed, payload = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+        alloc_and_send_resp_structure(((fibo_async_struct_type *)userdata)->serviceid, ((fibo_async_struct_type *)userdata)->cid, 1, 1, "1");
+        return RET_ERROR;
+    }
+
+    profile_obj *profiles = (profile_obj *)malloc(sizeof(profile_obj));
+    memset(profiles, 0, sizeof(profile_obj));
+    ((fibo_async_struct_type *)userdata)->data = profiles; // for next step
+
+    FIBO_LOG_INFO("open channel successfully");
+
+    // 3. Select ISD-R app
+
+    FIBO_LOG_DEBUG("Selecting ISD-R app...");
+
+    if (!fibo_delete_profile_select_icd_r_app((fibo_async_struct_type *) userdata)) {
+        return RET_ERROR;
+    }
+    userdata = NULL;
+
+    return RET_OK;
+}
+
+static void fibo_delete_profile_open_channel(fibo_async_struct_type *userdata) {
+    fibo_ret_enum_type status = 0;
+    char *open_channel = "AT+CSIM=10,\"0070000001\"";
+
+    // 2. Open Channel
+
+    FIBO_LOG_DEBUG("Open Channel begin");
+
+    status = fibo_parse_send_req_atcmd_with_userdata(userdata, fibo_delete_profile_open_channel_ready,
+                                open_channel); // move(userdata)
+    FIBO_LOG_DEBUG("Open Channel end, status = %d", status);
+    if (RET_OK != status)
+    {
+        FIBO_LOG_ERROR("setting error");
+        alloc_and_send_resp_structure(((fibo_async_struct_type *)userdata)->serviceid, ((fibo_async_struct_type *)userdata)->cid, 1, 1, "1");
+        free(userdata); // move failed
+    } else {
+        userdata = NULL;
+    }
+}
+
+static fibo_ret_enum_type fibo_delete_profile_configure_esim_ready(void *device,
+    GAsyncResult *res,
+    gpointer userdata) {
+
+    // fibo_async_struct_type*   user_data = (fibo_async_struct_type *)userdata;
+
+    FIBO_LOG_DEBUG("configure AT command called");
+
+
+    if (strstr(((fibo_async_struct_type *)userdata)->payload_str, "ERROR") != NULL) {
+        FIBO_LOG_ERROR("fibo_delete_profile_configure_esim_ready failed, payload = %s", ((fibo_async_struct_type *)userdata)->payload_str);
+        alloc_and_send_resp_structure(((fibo_async_struct_type *)userdata)->serviceid, ((fibo_async_struct_type *)userdata)->cid, 1, 1, "1");
+        return RET_ERROR;
+    }
+    
+
+    FIBO_LOG_INFO("open channel successfully");
+
+    // Open channel
+
+    FIBO_LOG_DEBUG("Open channel...");
+    ((fibo_async_struct_type *) userdata)->data = NULL;
+    fibo_delete_profile_open_channel((fibo_async_struct_type *) userdata); // free(userdata)
+    userdata = NULL;
+
+    return RET_OK;
+}
+
+static bool fibo_delete_profile_configure_esim(int serviceid, int cid, gint rtcode) {
+    fibo_ret_enum_type status = 0;
+    char *open_channel = "AT+CSIM=20,\"80AA000005A903830107\"";
+
+    // 1. configure
+
+    FIBO_LOG_DEBUG("configure begin");
+    char payload_str[2048] = {0};
+
+    status = fibo_parse_send_req_atcmd(serviceid, cid, rtcode, (2048 - 1),
+                                payload_str, fibo_delete_profile_configure_esim_ready,
+                                open_channel);
+
+    FIBO_LOG_DEBUG("configure end, status = %d", status);
+
+    if (RET_OK != status)
+    {
+        FIBO_LOG_ERROR("setting error");
+        return false;
+    }
+    return true;
+}
+
+gint fibo_delete_test_profile(gint  serviceid,
+    gint     cid,
+    gint     rtcode,
+    gint     payloadlen,
+    gchar    *payload_str,
+    gpointer callback,
+    char *req_cmd)
+{
+    if (fibo_delete_profile_configure_esim(serviceid, cid, rtcode) == false) {
+        FIBO_LOG_ERROR("open channel failed");
+        return RET_ERROR;
+    }
+
+    return RET_OK;
+}

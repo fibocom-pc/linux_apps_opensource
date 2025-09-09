@@ -640,6 +640,7 @@ fibo_adapter_send_at_over_gnss_message(void                   *message,
     FILE                     *fp                                  =  NULL;
     gchar                    commandrsp[GREP_MBIM_PORT_CMD_LEN]   =  {0};
     gchar                    atport[GREP_MBIM_PORT_CMD_LEN]       =  {0};
+    void                     *data                                =  NULL;
 
     if (!message || !len || !callback || !userdata) {
         FIBO_LOG_ERROR("NULL pointer!\n");
@@ -652,6 +653,7 @@ fibo_adapter_send_at_over_gnss_message(void                   *message,
     user_data = (fibo_async_struct_type *)userdata;
     cid = user_data->cid;
     service_id = user_data->serviceid;
+    data = user_data->data;
 
     ret = fibo_adapter_helperm_get_work_module_name(atport);
     if (ret != RET_OK) {
@@ -738,6 +740,7 @@ fibo_adapter_send_at_over_gnss_message(void                   *message,
         user_data->serviceid   = service_id;
         user_data->cid         = cid;
         user_data->rtcode      = rtcode;
+        user_data->data        = data;
     }
 
     if (rcv_data) {

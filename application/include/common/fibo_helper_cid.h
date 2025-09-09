@@ -126,6 +126,8 @@ typedef enum
     /* sim card slots */
     GET_SIM_SLOTS_STATUS,
     SET_SIM_SLOTS,
+    DELETE_TEST_PROFILE,
+    GET_EID,
 
     ENUM_CID_MAX
 }e_command_cid;
