@@ -47,6 +47,7 @@
 #define FIBO_STATIC_CONFIG_ANTURNERSTATE "antturnerstate"
 
 #define FIBO_APP_CONFIG_INI "fbwwanConfig.ini"
+#define FIBO_DELETE_PROFILE_IMEI_LIST "imei"
 #define FIBO_ESIM_DISABLE_XML "eSIMRegionRestrictTable.xml"
 #define FIBO_DEVICEMODE_MAPPING_XML "DeviceModeToScenarioIndexMappingTable.xml"
 #define FIBO_REGION_MAPPING_XML "RegionMappingTable.xml"
@@ -301,6 +302,172 @@ int fibo_device_mode_get(void)
 
     FIBO_LOG_INFO("get config value failed,use default config");
     return DEVICE_MODE_FILE;
+}
+
+bool fibo_load_static_delete_profile_imei_list(char *imei_list, int len)
+{
+    char file_path[128] = {0};
+
+    sprintf(file_path, "%s/%s", FIBO_APP_CONFIG_INI_PATH, FIBO_DELETE_PROFILE_IMEI_LIST);
+    if (access(file_path, F_OK))
+    {
+        sprintf(file_path, "%s/%s", "./", FIBO_DELETE_PROFILE_IMEI_LIST);
+        if (access(file_path, F_OK))
+        {
+            FIBO_LOG_INFO("file:%s,file is not exeist", file_path);
+            imei_list[0] = '\0';
+            return true;
+        }
+    }
+    FILE *fp = fopen(file_path, "r");
+    if (fp == NULL)
+    {
+        FIBO_LOG_ERROR("open file %s failed", file_path);
+        return false;
+    }
+    char buffer[2560] = {0};
+    while(fgets(buffer, sizeof(buffer), fp))
+    {
+        strncat(imei_list, buffer, len - strlen(imei_list) - 1);
+    }
+
+    return true;
+}
+
+bool fibo_write_imei_to_file(const char *imei_list)
+{
+    char file_path[128] = {0};
+    sprintf(file_path, "%s/%s", FIBO_APP_CONFIG_INI_PATH, FIBO_DELETE_PROFILE_IMEI_LIST);
+
+    FILE *fp = fopen(file_path, "w");
+    if (fp == NULL)
+    {
+        FIBO_LOG_ERROR("open file %s failed", file_path);
+        return false;
+    }
+    fprintf(fp, "%s", imei_list);
+    fclose(fp);
+    return true;
+}
+
+static bool switch_slot_to_esim(bool * is_already_esim)
+{
+    char status = 0;
+    GET_CURRENT_CONFIG(GET_SIM_SLOTS_STATUS, status, TYPE_QUERY);
+
+    if (STATUS_UNKNOWN == status)
+    {
+        FIBO_LOG_ERROR("GET_SIM_SLOTS_STATUS error!");
+        return false;
+    }
+    if (SIM_SLOTS_SWITCH_1 == status)
+    {
+        status = 0;
+        SET_STATIC_CONFIG(SET_SIM_SLOTS, SIM_SLOTS_2, strlen(SIM_SLOTS_2), status);
+        FIBO_LOG_INFO("Switching to esim slot");
+        if (STATUS_UNKNOWN == status)
+        {
+            FIBO_LOG_ERROR("setting error");
+            return false;
+        }
+        sleep(5); // wait switch slot ok
+        GET_CURRENT_CONFIG(GET_SIM_SLOTS_STATUS, status, TYPE_QUERY);
+        return SIM_SLOTS_SWITCH_2 == status;
+    } else {
+        FIBO_LOG_INFO("already in esim slot, no need to switch");
+        if (is_already_esim != NULL)
+        {
+            *is_already_esim = 1; // Indicate that we are already in esim slot
+        }
+        return true;
+    }
+    return true;
+}
+
+static bool esim_slot_exist(void) {
+    char status = 0;
+    mesg_info *response = NULL;
+    char *eid = NULL;
+    char *rsp_data = NULL;
+    int payload_len = 0;
+    GET_CURRENT_CONFIG_DATA(GET_EID, status, rsp_data, payload_len);
+    if (payload_len == 0 || rsp_data == NULL) {
+        FIBO_LOG_WARNING("GET_EID response is empty, maybe no esim slot");
+        return false;
+    }
+    free(rsp_data);
+    rsp_data = NULL;
+    return payload_len >= 32; // EID length is typically 32 characters
+}
+
+static bool fibo_delete_test_profile(void)
+{
+    char status = 0;
+    bool ret = false;
+    bool is_already_esim = false;
+    char *rsp_data = NULL;
+    int payload_len = 0;
+    char imei_list[2560] = {0};
+    bool need_write_imei_list = false;
+
+    GET_CURRENT_CONFIG_DATA(GET_IMEI, status, rsp_data, payload_len);
+    if (payload_len == 0 || rsp_data == NULL) {
+        FIBO_LOG_WARNING("GET_IMEI response is empty, trying delete test profile anyway");
+    } else {
+        if (!fibo_load_static_delete_profile_imei_list(imei_list, sizeof(imei_list))) {
+            FIBO_LOG_ERROR("Failed to load IMEI list from file");
+            free(rsp_data);
+            return false;
+        }
+        if (strstr(imei_list, rsp_data) != NULL) {
+            FIBO_LOG_INFO("Current IMEI %s in delete list, no need to delete test profile", rsp_data);
+            free(rsp_data);
+            return true; // Current IMEI in delete list, no need to delete test profile
+        }
+        strcpy(imei_list, rsp_data);
+        need_write_imei_list = true;
+    }
+
+    // 1. Switch slot to esim
+
+    if (switch_slot_to_esim(&is_already_esim) == false)
+    {
+        FIBO_LOG_ERROR("switch slot to esim failed");
+        return false;
+    }
+
+    // 2. Obtain the eid to ensure the existence of the esim slot
+
+    if (esim_slot_exist() == false)
+    {
+        FIBO_LOG_ERROR("esim slot does not exist");
+        fibo_write_imei_to_file(imei_list);
+        return true; // No esim slot, no need to delete test profile
+    }
+
+    // 3. Delete profile
+
+    GET_CURRENT_CONFIG(DELETE_TEST_PROFILE, status, TYPE_QUERY);
+
+    if (status == STATUS_UNKNOWN) {
+        FIBO_LOG_ERROR("DELETE_PROFILE failed, status: %d", status);
+        // ret = false;
+    } else {
+        ret = true;
+        FIBO_LOG_INFO("DELETE_PROFILE success, status: %d", status);
+        if (need_write_imei_list) {
+            fibo_write_imei_to_file(imei_list);
+        }
+    }
+
+AFTER_SWITCH_SLOT:
+
+    // 10. Switch slot back to USIM
+    if (!is_already_esim) {
+        FIBO_LOG_INFO("Switching back to USIM slot");
+        SET_STATIC_CONFIG(SET_SIM_SLOTS, DEFAULT_SIM_SLOTS_1, strlen(DEFAULT_SIM_SLOTS_1), status);
+    }
+    return ret;
 }
 
 static bool fibo_set_sim_slots_switch(void)
@@ -1431,6 +1598,7 @@ bool fibo_set_disableesim_for_mcc(void)
 }
 
 static config_function_t config_data[] ={
+    {true, fibo_delete_test_profile, "delete test profile config"},
     {false, fibo_set_fcclock_enable, "fccunlock enable config"},
     {true, fibo_set_sim_slots_switch, "sim card slot config"},
     {false, fibo_set_wdisable_enable, "wdisable enable config"},

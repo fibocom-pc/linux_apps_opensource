@@ -24,6 +24,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <libudev.h>
+#include <stdbool.h>
 #include "libmbim-glib.h"
 #include "fibo_helper_common.h"
 
@@ -90,6 +91,31 @@ struct Progress {
 
 /*end of progress*/
 
+#define ICCID_LENGTH 20 // ICCID length is 20 characters
+#define MAX_PROFILE_NUM 20
+typedef enum {
+    TEST_PROFILE = 0,
+    NORMAL,
+} PROFILE_TYPE;
+
+typedef struct 
+{
+    char profile_id[ICCID_LENGTH + 1]; // ICCID length is 20, plus null terminator
+    bool status; // true:active, false:inactive
+    PROFILE_TYPE type; // TEST_PROFILE or NORMAL
+    int retry_times;
+}profile_status;
+
+typedef struct profile_stack_
+{
+    profile_status profiles[MAX_PROFILE_NUM]; // Array to hold up to 20 profiles
+    int profile_top;
+    bool (*func)(fibo_async_struct_type *user_data, struct profile_stack_ *profile);
+    int ret;
+    int channel_id;
+}profile_obj;
+
+
 void     fibo_helper_control_message_receiver(void);
 gint     alloc_and_send_resp_structure(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str);
 void     fibo_mutex_keep_pointer_exist_unlock(void);
@@ -134,6 +160,7 @@ gint     fibocom_edl_flash_ready(MbimDevice *device, GAsyncResult *res, gpointer
 gpointer fibocom_qdl_flash_command(gpointer payload, int *qdl_success_flag);
 gpointer edl_flashing_command(void *data);
 
+gint fibo_delete_test_profile(gint serviceid, gint cid, gint rtcode, gint payloadlen, gchar *payload_str, gpointer callback, char *req_cmd);
 gpointer fibocom_fastboot_flash_command(gpointer payload, int *fastboot_success_flag);
 gpointer fastboot_flashing_command(void *data);
 gint     fibocom_fastboot_flash_ready(MbimDevice *device, GAsyncResult *res, gpointer userdata);

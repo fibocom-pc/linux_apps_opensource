@@ -64,6 +64,7 @@ typedef struct
     gint        serviceid;
     gint        cid;
     gint        rtcode;
+    void        *data;
     gint        payloadlen;
     gchar       payload_str[0];
 }fibo_async_struct_type;
